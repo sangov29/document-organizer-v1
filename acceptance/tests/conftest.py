@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.models import Document, Page, PreprocessingResult, ProcessingJob, User
+from app.models.enums import ProcessingStatus
 
 API_URL = os.getenv("ACCEPTANCE_API_URL", "http://localhost:8000/api/v1")
 MAILPIT_URL = os.getenv("MAILPIT_API_URL", "http://mailpit:8025")
@@ -315,7 +316,11 @@ def wait_for_preprocessing(document_id: str, *, timeout: float = 60.0) -> dict[s
                         "needs_review": result.needs_review,
                         "noise_reduction_applied": result.noise_reduction_applied,
                     })
-            if pages and len(results) == len(pages):
+            if (
+                pages
+                and len(results) == len(pages)
+                and doc.status != ProcessingStatus.PROCESSING
+            ):
                 return {"document_status": doc.status.value, "pages": results}
         finally:
             db.close()
