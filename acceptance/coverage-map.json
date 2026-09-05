@@ -1,8 +1,8 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP baseline",
-  "scope": "Runtime API acceptance for UM-TC-001..005 and DI-TC-001..005",
+  "scope": "Runtime acceptance for UM-TC-001..005, DI-TC-001..005, and PP-TC-001..004",
   "rules": {
-    "drive": "Public HTTP API only",
+    "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
     "mail": "Mailpit local sink only; no external delivery-provider claim",
     "timing": "Separate from ordinary functional pass/fail"
@@ -52,6 +52,25 @@
     "DI-TC-005": {
       "pytest": ["test_DI_TC_005_bulk_partial_failure_isolation"],
       "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "dismiss/retry UI workflow not implemented; isolation verified by no sibling duplication/restart", "6": "covered"}
+    },
+    "PP-TC-001": {
+      "pytest": ["test_PP_TC_001_orientation_correction"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "normalized artifacts captured for inspection", "6": "uncertain orientation routed to needs_review"},
+      "evidence": "before/after PNG artifacts and orientation metadata"
+    },
+    "PP-TC-002": {
+      "pytest": ["test_PP_TC_002_low_quality_detection_and_traceability"],
+      "steps": {"1": "quality metric covered in service contract", "2": "blur metric covered in service contract", "3": "resolution metric covered in service contract", "4": "covered end-to-end", "5": "covered with needs_review document routing", "6": "covered by page-linked preprocessing_results row"}
+    },
+    "PP-TC-003": {
+      "pytest": ["test_PP_TC_003_deskew_supported_and_extreme_safe"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered by configurable supported tolerance", "4": "covered with needs_review", "5": "before/after artifact and residual angle captured"},
+      "open_parameter": "PP_DESKEW_MAX_DEGREES defaults to 15 and remains configurable pending benchmark"
+    },
+    "PP-TC-004": {
+      "pytest": ["test_PP_TC_004_noise_reduction_defaults_disabled"],
+      "status": "safe disabled decision",
+      "evidence": "decision record; paired OCR comparison deferred until OCR stage exists"
     }
   }
 }

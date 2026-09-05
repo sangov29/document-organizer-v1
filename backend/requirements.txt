@@ -14,6 +14,10 @@ httpx==0.28.1
 
 email-validator==2.2.0
 pypdf==5.4.0
+Pillow==11.2.1
+PyMuPDF==1.25.5
+opencv-python-headless==4.11.0.86
+pytesseract==0.3.13
 
 pyotp==2.9.0
 

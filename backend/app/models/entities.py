@@ -62,6 +62,21 @@ class Page(Base):
     __table_args__ = (UniqueConstraint("document_id", "page_number", name="uq_page_document_number"),)
 
 
+class PreprocessingResult(Base):
+    __tablename__ = "preprocessing_results"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    page_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("pages.id", ondelete="CASCADE"), unique=True, index=True)
+    normalized_object_key: Mapped[str] = mapped_column(String(1024), unique=True, nullable=False)
+    orientation_degrees: Mapped[int | None] = mapped_column(Integer)
+    orientation_confidence: Mapped[float | None] = mapped_column(Float)
+    skew_degrees: Mapped[float | None] = mapped_column(Float)
+    quality_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    quality_metadata: Mapped[dict] = mapped_column(JSON, nullable=False)
+    needs_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    noise_reduction_applied: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
 class ProcessingJob(Base):
     __tablename__ = "processing_jobs"
     id: Mapped[uuid.UUID] = uuid_pk()

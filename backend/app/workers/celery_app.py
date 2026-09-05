@@ -7,10 +7,11 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import create_email_verification_token, create_password_reset_token
 from app.db.session import SessionLocal
-from app.models import Document, Page, ProcessingJob, User
+from app.models import Document, Page, PreprocessingResult, ProcessingJob, User
 from app.models.enums import ProcessingStatus
 from app.services.email import email_service
 from app.services.storage import storage
+from app.services.preprocessing import preprocess_page
 
 celery = Celery("document_organizer", broker=settings.redis_url, backend=settings.redis_url)
 celery.conf.task_track_started = True
@@ -84,6 +85,44 @@ def _split_pages(db, document: Document) -> int:
     return 1
 
 
+def _preprocess_pages(db, document: Document, correlation_id: str) -> tuple[int, bool]:
+    pages = db.scalars(
+        select(Page).where(Page.document_id == document.id).order_by(Page.page_number)
+    ).all()
+    review_required = False
+    for page in pages:
+        existing = db.scalar(select(PreprocessingResult).where(PreprocessingResult.page_id == page.id))
+        if existing:
+            review_required = review_required or existing.needs_review
+            continue
+        job = ProcessingJob(
+            document_id=document.id, page_id=page.id, stage="preprocessing",
+            status=ProcessingStatus.PROCESSING, correlation_id=correlation_id,
+        )
+        db.add(job)
+        db.flush()
+        source = storage.get_bytes(page.derived_object_key)
+        page_mime = "application/pdf" if page.derived_object_key.endswith(".pdf") else document.mime_type
+        result = preprocess_page(source, page_mime)
+        key = f"users/{document.user_id}/documents/{document.id}/pages/{page.page_number}.normalized.png"
+        storage.put_immutable(key, result.png, "image/png")
+        db.add(PreprocessingResult(
+            page_id=page.id,
+            normalized_object_key=key,
+            orientation_degrees=result.orientation_degrees,
+            orientation_confidence=result.orientation_confidence,
+            skew_degrees=result.skew_degrees,
+            quality_status=result.quality_status,
+            quality_metadata=result.quality_metadata,
+            needs_review=result.needs_review,
+            noise_reduction_applied=result.noise_reduction_applied,
+        ))
+        job.status = ProcessingStatus.NEEDS_REVIEW if result.needs_review else ProcessingStatus.READY
+        review_required = review_required or result.needs_review
+        db.flush()
+    return len(pages), review_required
+
+
 @celery.task(name="pipeline.bootstrap", bind=True, autoretry_for=(RuntimeError,), retry_backoff=True, max_retries=3)
 def bootstrap_pipeline(self, document_id: str):
     db = SessionLocal()
@@ -108,11 +147,12 @@ def bootstrap_pipeline(self, document_id: str):
 
         page_count = _split_pages(db, document)
         job.status = ProcessingStatus.READY
-        # Keep the document queued: page splitting is complete, but PP/CL/CR/EX
-        # have not yet executed. READY would falsely claim end-to-end completion.
-        document.status = ProcessingStatus.QUEUED
+        _, review_required = _preprocess_pages(db, document, job.correlation_id)
+        # PP is complete. Later CL/CR/EX stages are still pending; a degraded
+        # page is explicitly routed for review rather than silently accepted.
+        document.status = ProcessingStatus.NEEDS_REVIEW if review_required else ProcessingStatus.QUEUED
         db.commit()
-        return {"document_id": document_id, "status": "pages_ready", "page_count": page_count}
+        return {"document_id": document_id, "status": "preprocessing_ready", "page_count": page_count, "needs_review": review_required}
     except Exception as exc:
         db.rollback()
         document = db.get(Document, document_uuid) if document_uuid else None
@@ -126,6 +166,16 @@ def bootstrap_pipeline(self, document_id: str):
             if job:
                 job.status = ProcessingStatus.FAILED
                 job.error_code = exc.__class__.__name__
+            pp_jobs = db.scalars(
+                select(ProcessingJob).where(
+                    ProcessingJob.document_id == document.id,
+                    ProcessingJob.stage == "preprocessing",
+                    ProcessingJob.status == ProcessingStatus.PROCESSING,
+                )
+            ).all()
+            for pp_job in pp_jobs:
+                pp_job.status = ProcessingStatus.FAILED
+                pp_job.error_code = exc.__class__.__name__
             db.commit()
         raise
     finally:

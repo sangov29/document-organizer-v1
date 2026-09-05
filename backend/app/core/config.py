@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     redis_url: str
     max_upload_bytes: int = 20 * 1024 * 1024
+    pp_min_width: int = 600
+    pp_min_height: int = 800
+    pp_blur_threshold: float = 55.0
+    pp_contrast_threshold: float = 24.0
+    pp_orientation_confidence: float = 5.0
+    pp_deskew_max_degrees: float = 15.0
+    pp_noise_reduction_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

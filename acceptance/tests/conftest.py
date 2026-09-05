@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy import select
 
 from app.db.session import SessionLocal
-from app.models import Document, Page, ProcessingJob, User
+from app.models import Document, Page, PreprocessingResult, ProcessingJob, User
 
 API_URL = os.getenv("ACCEPTANCE_API_URL", "http://localhost:8000/api/v1")
 MAILPIT_URL = os.getenv("MAILPIT_API_URL", "http://mailpit:8025")
@@ -290,6 +290,37 @@ def wait_for_ingestion(document_id: str, *, expected_job_status: str = "ready", 
             db.close()
         time.sleep(0.25)
     raise AssertionError(f"Ingestion job for {document_id} did not reach {expected_job_status}")
+
+
+def wait_for_preprocessing(document_id: str, *, timeout: float = 60.0) -> dict[str, Any]:
+    deadline = time.time() + timeout
+    doc_uuid = uuid.UUID(document_id)
+    while time.time() < deadline:
+        db = SessionLocal()
+        try:
+            doc = db.get(Document, doc_uuid)
+            pages = db.scalars(select(Page).where(Page.document_id == doc_uuid).order_by(Page.page_number)).all()
+            results = []
+            for page in pages:
+                result = db.scalar(select(PreprocessingResult).where(PreprocessingResult.page_id == page.id))
+                if result:
+                    results.append({
+                        "page_id": str(page.id), "page_number": page.page_number,
+                        "normalized_object_key": result.normalized_object_key,
+                        "orientation_degrees": result.orientation_degrees,
+                        "orientation_confidence": result.orientation_confidence,
+                        "skew_degrees": result.skew_degrees,
+                        "quality_status": result.quality_status,
+                        "quality_metadata": result.quality_metadata,
+                        "needs_review": result.needs_review,
+                        "noise_reduction_applied": result.noise_reduction_applied,
+                    })
+            if pages and len(results) == len(pages):
+                return {"document_status": doc.status.value, "pages": results}
+        finally:
+            db.close()
+        time.sleep(0.25)
+    raise AssertionError(f"Preprocessing for {document_id} did not complete")
 
 
 @pytest.hookimpl(hookwrapper=True)

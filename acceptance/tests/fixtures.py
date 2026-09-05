@@ -7,6 +7,7 @@ import zlib
 from io import BytesIO
 
 from pypdf import PdfWriter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Tiny valid JPEG, used as a deterministic base and made unique with a JPEG COM segment.
 _JPEG_BASE = base64.b64decode(
@@ -72,3 +73,32 @@ def malformed_pdf_bytes(run_id: str, label: str) -> bytes:
 
 def unsupported_bytes(run_id: str, label: str) -> bytes:
     return f"unsupported acceptance fixture {run_id}:{label}:{_tag(run_id, label)}\n".encode()
+
+
+def document_png(run_id: str, label: str, *, rotation: float = 0, blur: float = 0,
+                 contrast: str = "normal", size: tuple[int, int] = (1200, 1600)) -> bytes:
+    background = 245 if contrast == "normal" else 145
+    foreground = 15 if contrast == "normal" else 135
+    image = Image.new("RGB", size, (background,) * 3)
+    draw = ImageDraw.Draw(image)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 38)
+    except OSError:
+        font = ImageFont.load_default()
+    lines = [
+        "DOCUMENT ORGANIZER ACCEPTANCE PAGE",
+        f"Run {run_id} Fixture {label}",
+        "Name: Synthetic Example Customer",
+        "Reference: PP-TEST-2026-0001",
+        "Date: 05 September 2026",
+        "This page contains repeated readable text for orientation.",
+    ] * 4
+    for index, line in enumerate(lines):
+        draw.text((80, 70 + index * 58), line, fill=(foreground,) * 3, font=font)
+    if blur:
+        image = image.filter(ImageFilter.GaussianBlur(blur))
+    if rotation:
+        image = image.rotate(rotation, expand=True, fillcolor=(background,) * 3)
+    output = BytesIO()
+    image.save(output, "PNG")
+    return output.getvalue()
