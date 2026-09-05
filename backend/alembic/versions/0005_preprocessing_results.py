@@ -14,6 +14,11 @@ depends_on = None
 
 
 def upgrade():
+    # Revision 0001 uses current Base.metadata for a fresh database, so a new
+    # installation may already contain this table. Existing databases stamped
+    # at 0004 do not. Keep the additive migration safe for both paths.
+    if "preprocessing_results" in sa.inspect(op.get_bind()).get_table_names():
+        return
     op.create_table(
         "preprocessing_results",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -32,5 +37,6 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index("ix_preprocessing_results_page_id", table_name="preprocessing_results")
-    op.drop_table("preprocessing_results")
+    if "preprocessing_results" in sa.inspect(op.get_bind()).get_table_names():
+        op.drop_index("ix_preprocessing_results_page_id", table_name="preprocessing_results")
+        op.drop_table("preprocessing_results")
