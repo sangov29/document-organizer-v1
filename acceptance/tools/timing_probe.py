@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 import statistics
 import time
 import uuid
@@ -14,8 +15,9 @@ import httpx
 API_URL = os.getenv("ACCEPTANCE_API_URL", "http://localhost:8000/api/v1")
 RUN_ID = os.getenv("ACCEPTANCE_RUN_ID", uuid.uuid4().hex[:12])
 EVIDENCE_DIR = Path(os.getenv("ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER", "/evidence"))
-SAMPLES = int(os.getenv("TIMING_SAMPLES", "20"))
-WARMUPS = int(os.getenv("TIMING_WARMUPS", "3"))
+SAMPLES = int(os.getenv("TIMING_SAMPLES", "50"))
+WARMUPS = int(os.getenv("TIMING_WARMUPS", "6"))
+ORDER_SEED = os.getenv("TIMING_ORDER_SEED", "acceptance-balanced-v1")
 MEDIAN_TOL = float(os.getenv("TIMING_MEDIAN_REL_TOL", "0.25"))
 P95_TOL = float(os.getenv("TIMING_P95_REL_TOL", "0.35"))
 KS_MAX = float(os.getenv("TIMING_KS_MAX", "0.35"))
@@ -58,21 +60,33 @@ def timed(client: httpx.Client, method: str, path: str, json_body: dict) -> tupl
     return elapsed_ms, response.status_code
 
 
-def sample_pair(client: httpx.Client, left_call, right_call) -> tuple[list[float], list[float], list[int], list[int]]:
+def balanced_order(count: int, probe_name: str, phase: str) -> list[str]:
+    """Build a reproducible order with equal left-first/right-first pairs."""
+    if count < 2 or count % 2:
+        raise ValueError("timing sample and warmup counts must be positive even numbers")
+    order = ["left-first"] * (count // 2) + ["right-first"] * (count // 2)
+    random.Random(f"{ORDER_SEED}:{probe_name}:{phase}").shuffle(order)
+    return order
+
+
+def sample_pair(client: httpx.Client, probe_name: str, left_call, right_call) -> tuple[list[float], list[float], list[int], list[int], list[str]]:
     left, right, left_status, right_status = [], [], [], []
-    for _ in range(WARMUPS):
-        left_call(client); right_call(client)
-    # Interleave to reduce drift from CPU/container load.
-    for index in range(SAMPLES):
-        if index % 2 == 0:
+    for first in balanced_order(WARMUPS, probe_name, "warmup"):
+        if first == "left-first":
+            left_call(client); right_call(client)
+        else:
+            right_call(client); left_call(client)
+    measurement_order = balanced_order(SAMPLES, probe_name, "measurement")
+    for first in measurement_order:
+        if first == "left-first":
             lv, ls = left_call(client); rv, rs = right_call(client)
         else:
             rv, rs = right_call(client); lv, ls = left_call(client)
         left.append(lv); right.append(rv); left_status.append(ls); right_status.append(rs)
-    return left, right, left_status, right_status
+    return left, right, left_status, right_status, measurement_order
 
 
-def summarize(name: str, left_name: str, right_name: str, left: list[float], right: list[float], statuses: tuple[list[int], list[int]]) -> dict:
+def summarize(name: str, left_name: str, right_name: str, left: list[float], right: list[float], statuses: tuple[list[int], list[int]], measurement_order: list[str]) -> dict:
     left_median, right_median = statistics.median(left), statistics.median(right)
     left_p95, right_p95 = percentile(left, 0.95), percentile(right, 0.95)
     median_delta = rel_delta(left_median, right_median)
@@ -90,6 +104,7 @@ def summarize(name: str, left_name: str, right_name: str, left: list[float], rig
             "p95_relative_delta": p95_delta,
             "ks_statistic": ks,
         },
+        "measurement_order": measurement_order,
         "tolerance": {
             "median_relative_delta_max": MEDIAN_TOL,
             "p95_relative_delta_max": P95_TOL,
@@ -156,13 +171,15 @@ def main() -> int:
             ("login_existing_wrong_password_vs_nonexistent", "existing_wrong_password", "nonexistent", login_existing_wrong, login_missing),
             ("password_reset_existing_vs_nonexistent", "existing", "nonexistent", reset_existing, reset_missing),
         ]:
-            left, right, ls, rs = sample_pair(client, left_call, right_call)
-            results.append(summarize(name, left_name, right_name, left, right, (ls, rs)))
+            left, right, ls, rs, order = sample_pair(client, name, left_call, right_call)
+            results.append(summarize(name, left_name, right_name, left, right, (ls, rs), order))
 
     document = {
         "run_id": RUN_ID,
         "sample_count_per_group": SAMPLES,
         "warmups_per_group": WARMUPS,
+        "measurement_order_method": "seeded balanced random branch-first order within pairs",
+        "measurement_order_seed": ORDER_SEED,
         "functional_results": "separate; see junit-functional.xml",
         "results": results,
     }

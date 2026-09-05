@@ -30,6 +30,11 @@ Timing is deliberately separate from normal functional JUnit. `tools/timing_prob
 - login: real account + wrong password vs nonexistent account;
 - password reset request: real vs nonexistent account.
 
+The probe uses 50 samples and 6 warmups per group by default. Within every
+pair it uses a recorded, seeded, balanced randomized branch-first order. This
+reduces systematic container drift while keeping the published median, p95 and
+KS acceptance thresholds unchanged. Sample and warmup counts must be even.
+
 Published outputs include raw samples, median, p95, relative deltas and a two-sample Kolmogorov-Smirnov statistic.
 
 The local harness tolerance is **not a product NFR benchmark**. It is a regression guard and is configurable:
