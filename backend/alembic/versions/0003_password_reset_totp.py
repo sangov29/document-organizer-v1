@@ -13,9 +13,12 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("users", sa.Column("reset_version", sa.Integer(), nullable=False, server_default="0"))
-    op.alter_column("users", "reset_version", server_default=None)
-    op.add_column("users", sa.Column("totp_secret_ciphertext", sa.Text(), nullable=True))
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("users")}
+    if "reset_version" not in columns:
+        op.add_column("users", sa.Column("reset_version", sa.Integer(), nullable=False, server_default="0"))
+        op.alter_column("users", "reset_version", server_default=None)
+    if "totp_secret_ciphertext" not in columns:
+        op.add_column("users", sa.Column("totp_secret_ciphertext", sa.Text(), nullable=True))
 
 
 def downgrade():

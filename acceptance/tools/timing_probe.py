@@ -118,7 +118,7 @@ def write_junit(results: list[dict], path: Path) -> None:
 
 def main() -> int:
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
-    existing_email = f"acceptance+{RUN_ID}-timing-existing@example.test"
+    existing_email = f"acceptance+{RUN_ID}-timing-existing@example.com"
 
     with httpx.Client(base_url=API_URL, timeout=30.0) as client:
         # Establish one existing account through the public API. Verification is
@@ -132,7 +132,7 @@ def main() -> int:
         def reg_new(c):
             nonlocal counter
             counter += 1
-            email = f"acceptance+{RUN_ID}-timing-new-{counter:04d}@example.test"
+            email = f"acceptance+{RUN_ID}-timing-new-{counter:04d}@example.com"
             return timed(c, "POST", "/auth/register", {"email": email, "password": PASSWORD})
 
         def reg_existing(c):
@@ -142,13 +142,13 @@ def main() -> int:
             return timed(c, "POST", "/auth/login", {"email": existing_email, "password": "Acceptance-Wrong-Password!8z"})
 
         def login_missing(c):
-            return timed(c, "POST", "/auth/login", {"email": f"missing-{RUN_ID}@example.test", "password": "Acceptance-Wrong-Password!8z"})
+            return timed(c, "POST", "/auth/login", {"email": f"missing-{RUN_ID}@example.com", "password": "Acceptance-Wrong-Password!8z"})
 
         def reset_existing(c):
             return timed(c, "POST", "/auth/password-reset/request", {"email": existing_email})
 
         def reset_missing(c):
-            return timed(c, "POST", "/auth/password-reset/request", {"email": f"missing-reset-{RUN_ID}@example.test"})
+            return timed(c, "POST", "/auth/password-reset/request", {"email": f"missing-reset-{RUN_ID}@example.com"})
 
         results = []
         for name, left_name, right_name, left_call, right_call in [

@@ -177,7 +177,7 @@ def run_id() -> str:
 
 
 def unique_email(label: str) -> str:
-    return f"acceptance+{RUN_ID}-{label}-{uuid.uuid4().hex[:8]}@example.test"
+    return f"acceptance+{RUN_ID}-{label}-{uuid.uuid4().hex[:8]}@example.com"
 
 
 @pytest.fixture
