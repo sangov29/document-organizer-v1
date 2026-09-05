@@ -46,6 +46,18 @@ def test_registration_existing_branch_performs_hash_work():
     assert matching, "Existing-email registration path must still execute hash_password()"
 
 
+def test_registration_applies_common_response_equalization():
+    source = AUTH_PATH.read_text()
+    register = _function_node(source, "register")
+    calls = [
+        node.func.id
+        for node in ast.walk(register)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    ]
+
+    assert "equalize_registration_response" in calls
+
+
 def test_unknown_login_uses_dummy_hash_instead_of_short_circuiting_verify():
     source = AUTH_PATH.read_text()
     login = _function_node(source, "login")

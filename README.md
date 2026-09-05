@@ -8,7 +8,8 @@ The repository now implements the UM + DI application paths needed to begin runn
 
 ### Authentication / user management
 
-- registration with generic anti-enumerating external response
+- registration with a generic anti-enumerating external response, equalized
+  password-hash work, and a common bounded response window
 - equalized Argon2 work for new/existing registration branches
 - login with a process-level dummy password hash for unknown accounts
 - one-time expiring email verification using a versioned signed token

@@ -1,3 +1,5 @@
+import secrets
+import time
 import uuid
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -39,6 +41,22 @@ from app.workers.celery_app import send_password_reset_email, send_verification_
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Registration performs different database work for a new account. Password
+# hashing is equalized below, while this common response window masks the small
+# remaining commit/queueing difference without changing the public response.
+REGISTRATION_RESPONSE_FLOOR_SECONDS = 0.200
+REGISTRATION_RESPONSE_JITTER_MICROSECONDS = 25_000
+
+
+def equalize_registration_response(started_at: float) -> None:
+    target_seconds = (
+        REGISTRATION_RESPONSE_FLOOR_SECONDS
+        + secrets.randbelow(REGISTRATION_RESPONSE_JITTER_MICROSECONDS + 1) / 1_000_000
+    )
+    remaining = target_seconds - (time.perf_counter() - started_at)
+    if remaining > 0:
+        time.sleep(remaining)
+
 
 def user_response(user: User) -> UserResponse:
     return UserResponse(id=str(user.id), email=user.email, is_verified=user.is_verified, totp_enabled=user.totp_enabled)
@@ -46,6 +64,7 @@ def user_response(user: User) -> UserResponse:
 
 @router.post("/register", response_model=RegisterResponse, status_code=202)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+    started_at = time.perf_counter()
     email = payload.email.lower()
     existing = db.scalar(select(User).where(User.email == email))
     if not existing:
@@ -67,6 +86,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         hash_password(payload.password)
 
     send_verification_email.delay(email)
+    equalize_registration_response(started_at)
     return RegisterResponse(message="If registration can proceed, verification instructions will be sent.")
 
 
