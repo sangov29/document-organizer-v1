@@ -45,7 +45,7 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await expect(page.getByRole('status')).toContainText('Queued ui-proof.png');
 
   await upload('ui-proof-copy.png', PNG);
-  await expect(page.getByRole('alert')).toContainText('Duplicate detected');
+  await expect(page.getByText('Duplicate detected', {exact: true})).toBeVisible();
   await page.getByRole('button', {name: 'Keep another copy'}).click();
   await expect(page.getByRole('status')).toContainText('Kept duplicate ui-proof-copy.png');
   await expect(page.getByTestId('document-card')).toHaveCount(2);
