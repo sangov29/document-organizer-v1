@@ -1,0 +1,10 @@
+:root { font-family: Arial, sans-serif; color: #171717; background: #fafafa; }
+body { margin: 0; }
+main { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
+nav { display: flex; gap: 18px; margin-bottom: 36px; }
+a { color: inherit; }
+form { display: grid; gap: 12px; max-width: 480px; }
+input, button { padding: 10px 12px; font: inherit; }
+button { cursor: pointer; }
+.card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 12px 0; background: white; }
+.muted { color: #666; }

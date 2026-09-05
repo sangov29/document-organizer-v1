@@ -1,0 +1,52 @@
+services:
+  mailpit:
+    image: axllent/mailpit:v1.30.6
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  backend:
+    environment:
+      APP_ENV: acceptance
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_STARTTLS: "false"
+      MAILPIT_API_URL: http://mailpit:8025
+      MAX_UPLOAD_BYTES: "1048576"
+      IDLE_SESSION_MINUTES: "1"
+      VERIFICATION_TOKEN_MINUTES: "5"
+      PASSWORD_RESET_TOKEN_MINUTES: "1"
+      ACCEPTANCE_RUN_ID: ${ACCEPTANCE_RUN_ID}
+      ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER: /evidence
+      TIMING_SAMPLES: ${TIMING_SAMPLES:-20}
+      TIMING_WARMUPS: ${TIMING_WARMUPS:-3}
+      TIMING_MEDIAN_REL_TOL: ${TIMING_MEDIAN_REL_TOL:-0.25}
+      TIMING_P95_REL_TOL: ${TIMING_P95_REL_TOL:-0.35}
+      TIMING_KS_MAX: ${TIMING_KS_MAX:-0.35}
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./acceptance:/acceptance:ro
+      - ${ACCEPTANCE_EVIDENCE_DIR:-./acceptance/evidence}:/evidence
+
+  worker:
+    environment:
+      APP_ENV: acceptance
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_STARTTLS: "false"
+      MAILPIT_API_URL: http://mailpit:8025
+      MAX_UPLOAD_BYTES: "1048576"
+      IDLE_SESSION_MINUTES: "1"
+      VERIFICATION_TOKEN_MINUTES: "5"
+      PASSWORD_RESET_TOKEN_MINUTES: "1"
+    depends_on:
+      mailpit:
+        condition: service_healthy

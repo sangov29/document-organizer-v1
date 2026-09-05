@@ -1,0 +1,57 @@
+{
+  "baseline": "Test Catalogue v0.2 UM/DI/PP baseline",
+  "scope": "Runtime API acceptance for UM-TC-001..005 and DI-TC-001..005",
+  "rules": {
+    "drive": "Public HTTP API only",
+    "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
+    "mail": "Mailpit local sink only; no external delivery-provider claim",
+    "timing": "Separate from ordinary functional pass/fail"
+  },
+  "tests": {
+    "UM-TC-001": {
+      "pytest": ["test_UM_TC_001_registration_verification"],
+      "timing_probe": "registration_existing_vs_new",
+      "steps": {"1": "API route availability proxy; no browser assertion", "2": "covered", "3": "covered", "4": "covered", "5": "Mailpit sink", "6": "covered", "7": "covered", "8": "functional response comparison + separate timing evidence", "9": "DB inspection explicitly required for credential-persistence evidence"}
+    },
+    "UM-TC-002": {
+      "pytest": ["test_UM_TC_002_login_and_list_isolation", "test_UM_TC_002_direct_resource_identifier_isolation_known_gap"],
+      "timing_probe": "login_existing_wrong_password_vs_nonexistent",
+      "steps": {"1": "covered", "2": "covered", "3": "functional response comparison + separate timing evidence", "4": "covered using list endpoint", "5": "KNOWN GAP: no public resource-by-ID endpoint exists", "6": "partial via list isolation; direct-ID leak check blocked with step 5"}
+    },
+    "UM-TC-003": {
+      "pytest": ["test_UM_TC_003_password_reset_lifecycle", "test_UM_TC_003_password_reset_expiry"],
+      "timing_probe": "password_reset_existing_vs_nonexistent",
+      "steps": {"1": "covered", "2": "functional response comparison + separate timing evidence", "3": "Mailpit sink token lifecycle", "4": "covered", "5": "covered", "6": "covered", "7": "covered", "8": "covered using accelerated one-minute acceptance expiry"},
+      "additional": "Previously issued JWT replay is rejected after reset"
+    },
+    "UM-TC-004": {
+      "pytest": ["test_UM_TC_004_logout_and_idle_expiry"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered by replaying old JWT", "4": "covered", "5": "covered using one-minute acceptance idle timeout", "6": "covered"}
+    },
+    "UM-TC-005": {
+      "pytest": ["test_UM_TC_005_totp_optional_then_mandatory"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "covered", "6": "covered", "7": "covered"},
+      "additional": "Password-only login is explicitly rechecked after setup but before confirmation"
+    },
+    "DI-TC-001": {
+      "pytest": ["test_DI_TC_001_supported_uploads_and_safe_failures"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "malformed PDF worker failure covered; MIME/content sniffing remains implementation-limited", "6": "API preserves filename as inert data; browser execution evidence is outside API-only harness", "7": "202 + queued acknowledgement proxy; no UI screenshot"}
+    },
+    "DI-TC-002": {
+      "pytest": ["test_DI_TC_002_exact_duplicate_core", "test_DI_TC_002_keep_override_known_gap"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered through public document count", "5": "KNOWN GAP: no public proceed/keep override API", "6": "covered"}
+    },
+    "DI-TC-003": {
+      "pytest": ["test_DI_TC_003_capacity_limit"],
+      "steps": {"1": "covered", "2": "covered at exact 1 MiB acceptance boundary", "3": "covered", "4": "covered", "5": "API health covered; docker stats captured by orchestration as explicit resource evidence", "6": "acceptance override changes limit from source default without source modification"}
+    },
+    "DI-TC-004": {
+      "pytest": ["test_DI_TC_004_pdf_page_splitting"],
+      "steps": {"1": "covered", "2": "covered", "3": "DB evidence explicitly permitted by catalogue", "4": "DB linkage evidence explicitly permitted by catalogue", "5": "page rows/derived keys prove independently addressable page artifacts; downstream PP not yet implemented"}
+    },
+    "DI-TC-005": {
+      "pytest": ["test_DI_TC_005_bulk_partial_failure_isolation"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "dismiss/retry UI workflow not implemented; isolation verified by no sibling duplication/restart", "6": "covered"}
+    }
+  }
+}
