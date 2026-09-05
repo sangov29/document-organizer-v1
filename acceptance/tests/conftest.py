@@ -262,7 +262,7 @@ def db_user_state(email: str) -> dict[str, Any] | None:
         db.close()
 
 
-def wait_for_ingestion(document_id: str, *, expected_job_status: str = "READY", timeout: float = 30.0) -> dict[str, Any]:
+def wait_for_ingestion(document_id: str, *, expected_job_status: str = "ready", timeout: float = 30.0) -> dict[str, Any]:
     deadline = time.time() + timeout
     doc_uuid = uuid.UUID(document_id)
     while time.time() < deadline:

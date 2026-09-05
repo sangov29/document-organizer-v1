@@ -36,7 +36,7 @@ def test_DI_TC_001_supported_uploads_and_safe_failures(api, evidence, auth_token
     for filename, body, mime in fixtures:
         response = _upload(api, auth_token, f"DI-TC-001 upload {filename}", filename, body, mime)
         assert response.status_code == 202
-        assert response.json()["status"] == "QUEUED"
+        assert response.json()["status"] == "queued"
         evidence.document(response.json()["id"])
 
     unsupported = _upload(
@@ -53,7 +53,7 @@ def test_DI_TC_001_supported_uploads_and_safe_failures(api, evidence, auth_token
     assert malformed.status_code == 202
     malformed_id = malformed.json()["id"]
     evidence.document(malformed_id)
-    failed = wait_for_ingestion(malformed_id, expected_job_status="FAILED")
+    failed = wait_for_ingestion(malformed_id, expected_job_status="failed")
     evidence.note("malformed-pdf-worker", failed)
     assert failed["error_code"]
 
@@ -168,7 +168,7 @@ def test_DI_TC_005_bulk_partial_failure_isolation(api, evidence, auth_token, run
     for name in ("A.pdf", "B.jpg", "D.png"):
         doc_id = outcomes[name]["document"]["id"]
         states[name] = wait_for_ingestion(doc_id)
-        assert states[name]["job_status"] == "READY"
+        assert states[name]["job_status"] == "ready"
     evidence.note("bulk-independent-worker-states", states)
 
     listing = api.request("GET", "/documents", label="DI-TC-005 final documents", token=auth_token)
