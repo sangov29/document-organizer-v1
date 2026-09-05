@@ -1,6 +1,7 @@
 import hashlib
 import uuid
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from typing import Literal
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ def doc_response(doc: Document) -> DocumentResponse:
     return DocumentResponse(
         id=str(doc.id), original_filename=doc.original_filename, mime_type=doc.mime_type,
         size_bytes=doc.size_bytes, sha256=doc.sha256, status=doc.status.value,
+        duplicate_of_document_id=(str(doc.duplicate_of_document_id) if doc.duplicate_of_document_id else None),
         uploaded_at=doc.uploaded_at,
     )
 
@@ -34,9 +36,22 @@ def _read_upload(file: UploadFile) -> tuple[bytes, str]:
     return data, hashlib.sha256(data).hexdigest()
 
 
-def _persist_upload(file: UploadFile, data: bytes, digest: str, db: Session, user: User) -> Document:
-    existing = db.scalar(select(Document).where(Document.user_id == user.id, Document.sha256 == digest))
-    if existing:
+def _persist_upload(
+    file: UploadFile,
+    data: bytes,
+    digest: str,
+    db: Session,
+    user: User,
+    duplicate_action: Literal["reject", "keep"] = "reject",
+) -> Document:
+    existing = db.scalar(
+        select(Document).where(
+            Document.user_id == user.id,
+            Document.sha256 == digest,
+            Document.duplicate_of_document_id.is_(None),
+        )
+    )
+    if existing and duplicate_action == "reject":
         raise HTTPException(
             status_code=409,
             detail={"code": "duplicate_document", "existing_document_id": str(existing.id)},
@@ -49,6 +64,7 @@ def _persist_upload(file: UploadFile, data: bytes, digest: str, db: Session, use
         id=doc_id, user_id=user.id, original_filename=file.filename or "upload",
         mime_type=file.content_type, object_key=object_key, sha256=digest,
         size_bytes=len(data), status=ProcessingStatus.QUEUED,
+        duplicate_of_document_id=(existing.id if existing else None),
     )
     db.add(doc)
     db.flush()
@@ -62,6 +78,16 @@ def _persist_upload(file: UploadFile, data: bytes, digest: str, db: Session, use
         target_type="document", target_id=str(doc.id),
         metadata_json={"mime_type": file.content_type, "size_bytes": len(data)},
     ))
+    if existing:
+        db.add(AuditEvent(
+            user_id=user.id, event_type=AuditEventType.DUPLICATE_OVERRIDE,
+            target_type="document", target_id=str(doc.id),
+            metadata_json={
+                "action": "keep",
+                "existing_document_id": str(existing.id),
+                "sha256": digest,
+            },
+        ))
     try:
         db.commit()
     except IntegrityError:
@@ -96,11 +122,12 @@ def _persist_upload(file: UploadFile, data: bytes, digest: str, db: Session, use
 @router.post("", response_model=DocumentResponse, status_code=202)
 def upload_document(
     file: UploadFile = File(...),
+    duplicate_action: Literal["reject", "keep"] = Form("reject"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     data, digest = _read_upload(file)
-    return doc_response(_persist_upload(file, data, digest, db, user))
+    return doc_response(_persist_upload(file, data, digest, db, user, duplicate_action))
 
 
 @router.post("/bulk", response_model=BulkUploadResponse)
@@ -148,3 +175,19 @@ def bulk_upload_documents(
 def list_documents(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     docs = db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.uploaded_at.desc())).all()
     return [doc_response(d) for d in docs]
+
+
+@router.get("/{document_id}", response_model=DocumentResponse)
+def get_document(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = db.scalar(
+        select(Document).where(Document.id == document_id, Document.user_id == user.id)
+    )
+    if not document:
+        # Use the same response for nonexistent and foreign-owned identifiers so
+        # the endpoint cannot be used to enumerate another user's documents.
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc_response(document)

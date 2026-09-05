@@ -8,6 +8,7 @@ class DocumentResponse(BaseModel):
     mime_type: str
     size_bytes: int
     sha256: str
+    duplicate_of_document_id: str | None = None
     status: str
     uploaded_at: datetime
 

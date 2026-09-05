@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 
 import pyotp
 import pytest
@@ -114,10 +115,48 @@ def test_UM_TC_002_login_and_list_isolation(api, evidence, email_factory, passwo
 
 
 @pytest.mark.catalogue("UM-TC-002", steps="5-6")
-@pytest.mark.known_gap
-@pytest.mark.xfail(strict=True, reason="No public resource-by-ID endpoint exists yet; direct identifier tampering cannot be exercised without inventing a test-only API")
-def test_UM_TC_002_direct_resource_identifier_isolation_known_gap():
-    pytest.fail("UM-TC-002 steps 5-6 require a public resource-by-ID API before this substep can execute")
+def test_UM_TC_002_direct_resource_identifier_isolation(
+    api, evidence, auth_token, email_factory, password_factory, run_id
+):
+    email_b = email_factory("um002-owner-b")
+    password_b = password_factory("um002-owner-b")
+    registered = api.request(
+        "POST", "/auth/register", label="UM-TC-002 register owner B",
+        json={"email": email_b, "password": password_b},
+    )
+    assert registered.status_code == 202
+    token = extract_token_from_mail(
+        wait_for_mail_text(email_b, subject_phrase="Verify"), "/verify-email"
+    )
+    assert api.request(
+        "POST", "/auth/verify-email", label="UM-TC-002 verify owner B",
+        json={"token": token},
+    ).status_code == 200
+    login_b = login(api, email_b, password_b, label="UM-TC-002 login owner B")
+    assert login_b.status_code == 200
+    jwt_b = login_b.json()["access_token"]
+
+    from fixtures import png_bytes
+    uploaded = api.request(
+        "POST", "/documents", label="UM-TC-002 owner B upload", token=jwt_b,
+        files={"file": ("owner-b.png", png_bytes(run_id, "owner-b"), "image/png")},
+    )
+    assert uploaded.status_code == 202
+    document_id = uploaded.json()["id"]
+    evidence.document(document_id)
+
+    owner_read = api.request(
+        "GET", f"/documents/{document_id}", label="UM-TC-002 owner reads document", token=jwt_b
+    )
+    foreign_read = api.request(
+        "GET", f"/documents/{document_id}", label="UM-TC-002 foreign user denied", token=auth_token
+    )
+    missing_read = api.request(
+        "GET", f"/documents/{uuid.uuid4()}", label="UM-TC-002 nonexistent document", token=auth_token
+    )
+    assert owner_read.status_code == 200 and owner_read.json()["id"] == document_id
+    assert foreign_read.status_code == missing_read.status_code == 404
+    assert foreign_read.json() == missing_read.json()
 
 
 @pytest.mark.catalogue("UM-TC-003", steps="1-7 + JWT revocation")

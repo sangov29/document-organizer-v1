@@ -117,6 +117,23 @@ def test_persist_upload_commits_and_enqueues_one_document_at_a_time():
     )
 
 
+def test_document_by_id_is_scoped_to_authenticated_owner():
+    source = _source(DOCUMENTS)
+    assert 'Document.id == document_id' in source
+    assert 'Document.user_id == user.id' in source
+    assert 'status_code=404, detail="Document not found"' in source
+
+
+def test_duplicate_keep_is_explicit_linked_and_audited():
+    source = _source(DOCUMENTS)
+    entities = _source(ENTITIES)
+    assert 'Literal["reject", "keep"]' in source
+    assert 'duplicate_of_document_id=(existing.id if existing else None)' in source
+    assert 'AuditEventType.DUPLICATE_OVERRIDE' in source
+    assert 'duplicate_of_document_id: Mapped[uuid.UUID | None]' in entities
+    assert 'postgresql_where=text("duplicate_of_document_id IS NULL")' in entities
+
+
 def test_password_reset_delivery_worker_noops_for_unknown_accounts_but_tokenizes_real_accounts():
     worker = _source(WORKER)
     assert "def send_password_reset_email(email: str)" in worker

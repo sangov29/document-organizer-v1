@@ -14,9 +14,9 @@
       "steps": {"1": "API route availability proxy; no browser assertion", "2": "covered", "3": "covered", "4": "covered", "5": "Mailpit sink", "6": "covered", "7": "covered", "8": "functional response comparison + separate timing evidence", "9": "DB inspection explicitly required for credential-persistence evidence"}
     },
     "UM-TC-002": {
-      "pytest": ["test_UM_TC_002_login_and_list_isolation", "test_UM_TC_002_direct_resource_identifier_isolation_known_gap"],
+      "pytest": ["test_UM_TC_002_login_and_list_isolation", "test_UM_TC_002_direct_resource_identifier_isolation"],
       "timing_probe": "login_existing_wrong_password_vs_nonexistent",
-      "steps": {"1": "covered", "2": "covered", "3": "functional response comparison + separate timing evidence", "4": "covered using list endpoint", "5": "KNOWN GAP: no public resource-by-ID endpoint exists", "6": "partial via list isolation; direct-ID leak check blocked with step 5"}
+      "steps": {"1": "covered", "2": "covered", "3": "functional response comparison + separate timing evidence", "4": "covered using list endpoint", "5": "covered by ownership-scoped public resource-by-ID endpoint", "6": "covered; foreign and nonexistent IDs return the same response"}
     },
     "UM-TC-003": {
       "pytest": ["test_UM_TC_003_password_reset_lifecycle", "test_UM_TC_003_password_reset_expiry"],
@@ -38,8 +38,8 @@
       "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "malformed PDF worker failure covered; MIME/content sniffing remains implementation-limited", "6": "API preserves filename as inert data; browser execution evidence is outside API-only harness", "7": "202 + queued acknowledgement proxy; no UI screenshot"}
     },
     "DI-TC-002": {
-      "pytest": ["test_DI_TC_002_exact_duplicate_core", "test_DI_TC_002_keep_override_known_gap"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered through public document count", "5": "KNOWN GAP: no public proceed/keep override API", "6": "covered"}
+      "pytest": ["test_DI_TC_002_exact_duplicate_core", "test_DI_TC_002_keep_override"],
+      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered through public document count", "5": "covered by explicit duplicate keep action and canonical linkage", "6": "covered"}
     },
     "DI-TC-003": {
       "pytest": ["test_DI_TC_003_capacity_limit"],

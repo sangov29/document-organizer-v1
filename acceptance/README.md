@@ -13,12 +13,9 @@ This harness executes the already-baselined `UM-TC-001..005` and `DI-TC-001..005
 
 ## Catalogue mapping
 
-See `coverage-map.json`. Two known implementation gaps are deliberately visible rather than silently waived:
-
-1. `UM-TC-002` steps 5-6 cannot fully execute because there is no public document/resource-by-ID endpoint to tamper with yet.
-2. `DI-TC-002` step 5 cannot execute because no public duplicate `proceed/keep` override exists yet.
-
-Those subtests are strict `xfail`/known-gap evidence. The containing catalogue test must not be called fully Passed while they remain.
+See `coverage-map.json`. All previously catalogued UM/DI API gaps now have
+public runtime coverage, including ownership-safe document retrieval and the
+explicit duplicate `keep` action.
 
 UI-only screenshot requirements in `UM-TC-001` step 1 and `DI-TC-001` steps 6-7 are represented only by their API equivalents in this API-only harness and remain separate UI evidence if literal catalogue completion is required.
 

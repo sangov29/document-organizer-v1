@@ -126,10 +126,7 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "functional_junit": "junit-functional.xml",
   "timing_json": "timing.json",
   "timing_junit": "junit-timing.xml",
-  "known_catalogue_gaps": [
-    "UM-TC-002 steps 5-6: no public resource-by-ID endpoint",
-    "DI-TC-002 step 5: no public duplicate proceed/keep override"
-  ],
+  "known_catalogue_gaps": [],
   "mail_scope": "local Mailpit queue/token/sink lifecycle only; no external provider claim"
 }
 JSON

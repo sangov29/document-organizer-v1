@@ -95,10 +95,31 @@ def test_DI_TC_002_exact_duplicate_core(api, evidence, auth_token, run_id):
 
 
 @pytest.mark.catalogue("DI-TC-002", steps="5")
-@pytest.mark.known_gap
-@pytest.mark.xfail(strict=True, reason="No public duplicate proceed/keep override exists yet; harness will not invent semantics")
-def test_DI_TC_002_keep_override_known_gap():
-    pytest.fail("DI-TC-002 step 5 requires a public proceed/keep duplicate action")
+def test_DI_TC_002_keep_override(api, evidence, auth_token, run_id):
+    original = pdf_bytes(run_id, "di002-keep")
+    first = _upload(
+        api, auth_token, "DI-TC-002 keep original", "keep-original.pdf",
+        original, "application/pdf",
+    )
+    assert first.status_code == 202
+
+    kept = api.request(
+        "POST", "/documents", label="DI-TC-002 explicit duplicate keep", token=auth_token,
+        data={"duplicate_action": "keep"},
+        files={"file": ("keep-copy.pdf", original, "application/pdf")},
+    )
+    assert kept.status_code == 202
+    assert kept.json()["id"] != first.json()["id"]
+    assert kept.json()["sha256"] == first.json()["sha256"]
+    assert kept.json()["duplicate_of_document_id"] == first.json()["id"]
+    evidence.document(first.json()["id"])
+    evidence.document(kept.json()["id"])
+
+    listing = api.request(
+        "GET", "/documents", label="DI-TC-002 kept duplicate visible", token=auth_token
+    )
+    ids = {item["id"] for item in listing.json()}
+    assert {first.json()["id"], kept.json()["id"]} <= ids
 
 
 @pytest.mark.catalogue("DI-TC-003", steps="1-6")

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     Boolean, CheckConstraint, DateTime, Enum, Float, ForeignKey, Integer,
-    JSON, String, Text, UniqueConstraint
+    Index, JSON, String, Text, UniqueConstraint, text
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -37,11 +37,19 @@ class Document(Base):
     mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
     object_key: Mapped[str] = mapped_column(String(1024), unique=True, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    duplicate_of_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), index=True
+    )
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[ProcessingStatus] = mapped_column(Enum(ProcessingStatus, name="processing_status"), default=ProcessingStatus.QUEUED)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     pages = relationship("Page", back_populates="document", cascade="all, delete-orphan")
-    __table_args__ = (UniqueConstraint("user_id", "sha256", name="uq_document_user_hash"),)
+    __table_args__ = (
+        Index(
+            "uq_document_user_hash_canonical", "user_id", "sha256", unique=True,
+            postgresql_where=text("duplicate_of_document_id IS NULL"),
+        ),
+    )
 
 
 class Page(Base):

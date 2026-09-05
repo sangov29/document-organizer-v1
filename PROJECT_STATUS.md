@@ -54,15 +54,17 @@ The active execution environment has `cryptography`, FastAPI, SQLAlchemy and `py
 3. Then move to PP: orientation correction, low-quality assessment, deskew and optional comparative noise reduction.
 4. After PP is stable, begin OCR + CL/CR/EX for Utility + Identity + Unknown.
 
-## Runtime acceptance harness — source-review candidate
+## Runtime acceptance harness — verified baseline
 
-A runtime UM/DI acceptance harness has now been written under `acceptance/` but **has not been executed yet**. It is intentionally being handed off for independent source review first.
+The runtime UM/DI acceptance harness under `acceptance/` was executed
+successfully in GitHub Actions Run #7. That evidence recorded 11 passes, two
+then-known gaps, zero functional failures, and passes for all three separate
+anti-enumeration timing probes.
 
 Coverage is explicitly mapped to `UM-TC-001..005` and `DI-TC-001..005`. The harness drives behavior through the public API, uses Mailpit as a local SMTP/test-mail sink, generates unique accounts and per-run document content, produces functional JUnit plus separate timing JSON/JUnit, and collects redacted failure diagnostics.
 
-Two catalogue substeps remain deliberately visible as strict known gaps rather than being treated as passes:
-
-- `UM-TC-002` steps 5-6: no public resource-by-ID endpoint exists yet for direct identifier tampering.
-- `DI-TC-002` step 5: no public duplicate `proceed/keep` override exists yet.
+The two Run #7 gaps now have implementations and runtime tests prepared for the
+next evidence run: ownership-safe public resource-by-ID retrieval and explicit
+duplicate `keep` with canonical linkage and audit evidence.
 
 Literal browser/UI screenshot evidence is also not claimed by this API-only harness. See `acceptance/coverage-map.json` for the exact step-level crosswalk.
