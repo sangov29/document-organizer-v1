@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import hashlib
 import struct
 import zlib
@@ -8,17 +7,6 @@ from io import BytesIO
 
 from pypdf import PdfWriter
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
-# Tiny valid JPEG, used as a deterministic base and made unique with a JPEG COM segment.
-_JPEG_BASE = base64.b64decode(
-    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////"
-    "2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/"
-    "xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAqf/"
-    "xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/Aaf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/Aaf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/Aqf/"
-    "xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IV//2gAMAwEAAgADAAAAEP/EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8QH//EABQRAQAAAAAAAAAAAAAAAAAAABD/"
-    "2gAIAQIBAT8QH//EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEAAT8QH//Z"
-)
-
 
 def _tag(run_id: str, label: str) -> str:
     return hashlib.sha256(f"{run_id}:{label}".encode()).hexdigest()[:24]
@@ -60,11 +48,19 @@ def png_bytes(run_id: str, label: str) -> bytes:
 
 
 def jpeg_bytes(run_id: str, label: str) -> bytes:
-    comment = f"{run_id}:{label}:{_tag(run_id, label)}".encode()
+    tag = _tag(run_id, label)
+    colour = tuple(bytes.fromhex(tag[:6]))
+    image = Image.new("RGB", (64, 64), colour)
+    output = BytesIO()
+    image.save(output, "JPEG", quality=90, optimize=False, progressive=False)
+    base = output.getvalue()
+
+    comment = f"{run_id}:{label}:{tag}".encode()
     segment = b"\xff\xfe" + struct.pack(">H", len(comment) + 2) + comment
-    if not _JPEG_BASE.startswith(b"\xff\xd8"):
-        raise AssertionError("embedded JPEG fixture invalid")
-    return _JPEG_BASE[:2] + segment + _JPEG_BASE[2:]
+    data = base[:2] + segment + base[2:]
+    with Image.open(BytesIO(data)) as decoded:
+        decoded.load()
+    return data
 
 
 def malformed_pdf_bytes(run_id: str, label: str) -> bytes:
