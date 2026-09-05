@@ -93,11 +93,18 @@ class ProcessingJob(Base):
 class OCRArtifact(Base):
     __tablename__ = "ocr_artifacts"
     id: Mapped[uuid.UUID] = uuid_pk()
-    page_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("pages.id", ondelete="CASCADE"), index=True)
+    page_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("pages.id", ondelete="CASCADE"), unique=True, index=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    blocks: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     provider: Mapped[str] = mapped_column(String(128), nullable=False)
     model_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    method: Mapped[str] = mapped_column(String(128), nullable=False, default="printed_text_ocr")
+    language: Mapped[str] = mapped_column(String(32), nullable=False, default="eng")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    __table_args__ = (
+        CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", name="ck_ocr_confidence"),
+    )
 
 
 class ClassificationResult(Base):

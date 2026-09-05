@@ -2,15 +2,18 @@ import hashlib
 import uuid
 from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import AuditEvent, Document, ProcessingJob, User
+from app.models import AuditEvent, Document, OCRArtifact, Page, ProcessingJob, User
 from app.models.enums import AuditEventType, ProcessingStatus
-from app.schemas.documents import BulkUploadItemResponse, BulkUploadResponse, DocumentResponse
+from app.schemas.documents import (
+    BulkUploadItemResponse, BulkUploadResponse, DocumentOCRResponse,
+    DocumentResponse, OCRPageResponse,
+)
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
 
@@ -191,3 +194,38 @@ def get_document(
         # the endpoint cannot be used to enumerate another user's documents.
         raise HTTPException(status_code=404, detail="Document not found")
     return doc_response(document)
+
+
+@router.get("/{document_id}/ocr", response_model=DocumentOCRResponse)
+def get_document_ocr(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = db.scalar(
+        select(Document).where(Document.id == document_id, Document.user_id == user.id)
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    rows = db.execute(
+        select(Page, OCRArtifact)
+        .join(OCRArtifact, OCRArtifact.page_id == Page.id)
+        .where(Page.document_id == document.id)
+        .order_by(Page.page_number)
+    ).all()
+    page_count = db.scalar(select(func.count(Page.id)).where(Page.document_id == document.id)) or 0
+    if not rows or len(rows) < page_count:
+        raise HTTPException(status_code=202, detail="OCR processing is not complete")
+    return DocumentOCRResponse(
+        document_id=str(document.id),
+        pages=[
+            OCRPageResponse(
+                page_id=str(page.id), page_number=page.page_number,
+                text=artifact.text, confidence=artifact.confidence,
+                blocks=artifact.blocks, provider=artifact.provider,
+                model_version=artifact.model_version, method=artifact.method,
+                language=artifact.language, processed_at=artifact.created_at,
+            )
+            for page, artifact in rows
+        ],
+    )

@@ -7,11 +7,12 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import create_email_verification_token, create_password_reset_token
 from app.db.session import SessionLocal
-from app.models import Document, Page, PreprocessingResult, ProcessingJob, User
+from app.models import Document, OCRArtifact, Page, PreprocessingResult, ProcessingJob, User
 from app.models.enums import ProcessingStatus
 from app.services.email import email_service
 from app.services.storage import storage
 from app.services.preprocessing import preprocess_page
+from app.services.ocr import recognize_page
 
 celery = Celery("document_organizer", broker=settings.redis_url, backend=settings.redis_url)
 celery.conf.task_track_started = True
@@ -123,10 +124,51 @@ def _preprocess_pages(db, document: Document, correlation_id: str) -> tuple[int,
     return len(pages), review_required
 
 
+def _ocr_pages(db, document: Document, correlation_id: str) -> tuple[int, bool]:
+    pages = db.scalars(
+        select(Page).where(Page.document_id == document.id).order_by(Page.page_number)
+    ).all()
+    review_required = False
+    for page in pages:
+        existing = db.scalar(select(OCRArtifact).where(OCRArtifact.page_id == page.id))
+        if existing:
+            review_required = review_required or not existing.text or (
+                existing.confidence is None or existing.confidence < settings.ocr_review_confidence
+            )
+            continue
+        preprocessing = db.scalar(
+            select(PreprocessingResult).where(PreprocessingResult.page_id == page.id)
+        )
+        if not preprocessing:
+            raise RuntimeError("PreprocessingResult missing before OCR")
+        job = ProcessingJob(
+            document_id=document.id, page_id=page.id, stage="ocr",
+            status=ProcessingStatus.PROCESSING, correlation_id=correlation_id,
+        )
+        db.add(job)
+        db.flush()
+        result = recognize_page(storage.get_bytes(preprocessing.normalized_object_key))
+        low_confidence = not result.text or (
+            result.confidence is None or result.confidence < settings.ocr_review_confidence
+        )
+        db.add(OCRArtifact(
+            page_id=page.id, text=result.text, confidence=result.confidence,
+            blocks=result.blocks, provider=result.provider,
+            model_version=result.model_version, method=result.method,
+            language=result.language,
+        ))
+        job.status = ProcessingStatus.NEEDS_REVIEW if low_confidence else ProcessingStatus.READY
+        review_required = review_required or low_confidence
+        db.flush()
+    return len(pages), review_required
+
+
 @celery.task(name="pipeline.bootstrap", bind=True, autoretry_for=(RuntimeError,), retry_backoff=True, max_retries=3)
 def bootstrap_pipeline(self, document_id: str):
     db = SessionLocal()
     document_uuid = None
+    active_stage = "ingestion"
+    correlation_id = uuid.uuid4().hex
     try:
         document_uuid = uuid.UUID(document_id)
         document = db.get(Document, document_uuid)
@@ -140,6 +182,7 @@ def bootstrap_pipeline(self, document_id: str):
         )
         if not job:
             raise RuntimeError("Ingestion ProcessingJob missing")
+        correlation_id = job.correlation_id
 
         job.status = ProcessingStatus.PROCESSING
         document.status = ProcessingStatus.PROCESSING
@@ -147,35 +190,41 @@ def bootstrap_pipeline(self, document_id: str):
 
         page_count = _split_pages(db, document)
         job.status = ProcessingStatus.READY
-        _, review_required = _preprocess_pages(db, document, job.correlation_id)
-        # PP is complete. Later CL/CR/EX stages are still pending; a degraded
-        # page is explicitly routed for review rather than silently accepted.
+        db.commit()
+
+        active_stage = "preprocessing"
+        _, preprocessing_review = _preprocess_pages(db, document, job.correlation_id)
+        db.commit()
+
+        active_stage = "ocr"
+        _, ocr_review = _ocr_pages(db, document, job.correlation_id)
+        review_required = preprocessing_review or ocr_review
+        # Printed-text OCR is complete. Later CL/EX stages are still pending;
+        # degraded pages remain explicitly routed for review.
         document.status = ProcessingStatus.NEEDS_REVIEW if review_required else ProcessingStatus.QUEUED
         db.commit()
-        return {"document_id": document_id, "status": "preprocessing_ready", "page_count": page_count, "needs_review": review_required}
+        return {"document_id": document_id, "status": "ocr_ready", "page_count": page_count, "needs_review": review_required}
     except Exception as exc:
         db.rollback()
         document = db.get(Document, document_uuid) if document_uuid else None
         if document:
             document.status = ProcessingStatus.FAILED
-            job = db.scalar(
-                select(ProcessingJob)
-                .where(ProcessingJob.document_id == document.id, ProcessingJob.stage == "ingestion")
-                .order_by(ProcessingJob.created_at.desc())
-            )
-            if job:
-                job.status = ProcessingStatus.FAILED
-                job.error_code = exc.__class__.__name__
-            pp_jobs = db.scalars(
+            failed_jobs = db.scalars(
                 select(ProcessingJob).where(
                     ProcessingJob.document_id == document.id,
-                    ProcessingJob.stage == "preprocessing",
+                    ProcessingJob.stage == active_stage,
                     ProcessingJob.status == ProcessingStatus.PROCESSING,
                 )
             ).all()
-            for pp_job in pp_jobs:
-                pp_job.status = ProcessingStatus.FAILED
-                pp_job.error_code = exc.__class__.__name__
+            if not failed_jobs:
+                failed_jobs = [ProcessingJob(
+                    document_id=document.id, stage=active_stage,
+                    status=ProcessingStatus.FAILED, correlation_id=correlation_id,
+                )]
+                db.add(failed_jobs[0])
+            for failed_job in failed_jobs:
+                failed_job.status = ProcessingStatus.FAILED
+                failed_job.error_code = exc.__class__.__name__
             db.commit()
         raise
     finally:
