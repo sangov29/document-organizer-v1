@@ -35,7 +35,7 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password', {exact: true}).fill(password);
   await page.getByRole('button', {name: 'Login'}).click();
-  await expect(page.getByRole('heading', {name: 'Documents'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Documents', exact: true})).toBeVisible();
 
   const upload = async (name: string, body: Buffer) => {
     await page.getByLabel('Choose PDF, JPG or PNG').setInputFiles({name, mimeType: 'image/png', buffer: body});
