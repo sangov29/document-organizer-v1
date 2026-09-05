@@ -42,6 +42,14 @@ The local harness tolerance is **not a product NFR benchmark**. It is a regressi
 
 Functional JUnit and timing JUnit are separate files. The orchestration command reports both statuses independently.
 
+## Browser evidence
+
+The same command also runs a Playwright browser journey against the real
+frontend. It covers registration, Mailpit-backed verification, login, upload,
+duplicate detection and explicit keep, document details, inert rendering of an
+unusual filename, and logout. It publishes separate UI JUnit, screenshots and
+failure traces under the run evidence directory.
+
 ## One-command execution
 
 From the restored `document-organizer-v1/` directory:
@@ -59,6 +67,7 @@ The script:
 5. waits for API and Mailpit health;
 6. runs functional pytest acceptance and writes JUnit XML;
 7. runs the separate timing probe and writes timing JSON + timing JUnit XML;
-8. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
+8. runs the browser-level frontend journey and captures UI JUnit/screenshots;
+9. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
 
 Evidence is written under `acceptance/evidence/<run-id>/`.

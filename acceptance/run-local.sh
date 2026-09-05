@@ -116,6 +116,27 @@ FUNCTIONAL_EXIT=${PIPESTATUS[0]}
 "${COMPOSE[@]}" exec -T backend \
   python /acceptance/tools/timing_probe.py 2>&1 | tee "$EVIDENCE_DIR/timing-output.txt"
 TIMING_EXIT=${PIPESTATUS[0]}
+
+python3 - <<'PY'
+import time, urllib.request
+url = "http://localhost:3000"
+deadline = time.time() + 90
+last = None
+while time.time() < deadline:
+    try:
+        with urllib.request.urlopen(url, timeout=3) as response:
+            if response.status == 200:
+                break
+    except Exception as exc:
+        last = exc
+    time.sleep(1)
+else:
+    raise SystemExit(f"frontend health timeout: {last!r}")
+PY
+
+"${COMPOSE[@]}" --profile acceptance-ui run --rm --build ui-tests \
+  2>&1 | tee "$EVIDENCE_DIR/ui-output.txt"
+UI_EXIT=${PIPESTATUS[0]}
 set -e
 
 cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
@@ -123,9 +144,11 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "run_id": "$RUN_ID",
   "functional_exit": $FUNCTIONAL_EXIT,
   "timing_exit": $TIMING_EXIT,
+  "ui_exit": $UI_EXIT,
   "functional_junit": "junit-functional.xml",
   "timing_json": "timing.json",
   "timing_junit": "junit-timing.xml",
+  "ui_junit": "junit-ui.xml",
   "known_catalogue_gaps": [],
   "mail_scope": "local Mailpit queue/token/sink lifecycle only; no external provider claim"
 }
@@ -133,10 +156,11 @@ JSON
 
 printf '\nFunctional acceptance exit: %s\n' "$FUNCTIONAL_EXIT"
 printf 'Timing evidence exit: %s\n' "$TIMING_EXIT"
+printf 'UI acceptance exit: %s\n' "$UI_EXIT"
 printf 'Evidence directory: %s\n' "$EVIDENCE_REL"
 
 # Timing is intentionally separate, but the one-command harness is considered
 # unsuccessful if either evidence stream fails its own acceptance rule.
-if [[ $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 ]]; then
+if [[ $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $UI_EXIT -ne 0 ]]; then
   exit 1
 fi

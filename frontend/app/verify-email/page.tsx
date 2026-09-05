@@ -16,5 +16,5 @@ export default function VerifyEmail() {
       .catch((e) => setMessage(e instanceof Error ? e.message : 'Verification failed.'));
   }, []);
 
-  return <><h1>Email verification</h1><p>{message}</p></>;
+  return <><h1>Email verification</h1><p role="status">{message}</p></>;
 }

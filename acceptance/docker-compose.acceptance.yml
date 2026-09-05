@@ -51,3 +51,17 @@ services:
     depends_on:
       mailpit:
         condition: service_healthy
+
+  ui-tests:
+    profiles: ["acceptance-ui"]
+    build: ./acceptance/ui
+    environment:
+      BASE_URL: http://frontend:3000
+      MAILPIT_URL: http://mailpit:8025
+    depends_on:
+      frontend:
+        condition: service_started
+      mailpit:
+        condition: service_healthy
+    volumes:
+      - ${ACCEPTANCE_EVIDENCE_DIR:-./acceptance/evidence}:/evidence
