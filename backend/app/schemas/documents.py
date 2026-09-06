@@ -14,6 +14,18 @@ class DocumentResponse(BaseModel):
     uploaded_at: datetime
 
 
+class OrganizedDocumentResponse(DocumentResponse):
+    family: str
+    organization_label: str
+
+
+class DocumentSearchResponse(BaseModel):
+    items: list[OrganizedDocumentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 class BulkUploadItemResponse(BaseModel):
     filename: str
     outcome: str

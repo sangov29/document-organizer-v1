@@ -5,11 +5,12 @@ import io
 import json
 import uuid
 from io import BytesIO
+from datetime import datetime
 from typing import Literal
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
@@ -23,9 +24,9 @@ from app.models import (
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
     BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
-    DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse,
+    DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse, DocumentSearchResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
-    SensitiveRegionResponse, SensitiveRevealResponse,
+    OrganizedDocumentResponse, SensitiveRegionResponse, SensitiveRevealResponse,
 )
 from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text, mask_sensitive_value
 from app.services.storage import storage
@@ -194,6 +195,58 @@ def bulk_upload_documents(
 def list_documents(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     docs = db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.uploaded_at.desc())).all()
     return [doc_response(d) for d in docs]
+
+
+@router.get("/search", response_model=DocumentSearchResponse)
+def search_documents(
+    q: str | None = Query(None, max_length=200),
+    family: str | None = Query(None, max_length=64),
+    field_value: str | None = Query(None, max_length=200),
+    uploaded_from: datetime | None = None,
+    uploaded_to: datetime | None = None,
+    sort: Literal["newest", "oldest"] = "newest",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    active_classification = exists().where(
+        ClassificationResult.document_id == Document.id,
+        ClassificationResult.is_active.is_(True),
+        ClassificationResult.family == family,
+    ) if family else None
+    searchable_field = exists().where(
+        ExtractedField.document_id == Document.id,
+        ExtractedField.is_active.is_(True),
+        ExtractedField.value.ilike(f"%{field_value}%"),
+        ~exists().where(SensitivityTag.extracted_field_id == ExtractedField.id),
+    ) if field_value else None
+    statement = select(Document).where(Document.user_id == user.id)
+    if q:
+        statement = statement.where(Document.original_filename.ilike(f"%{q}%"))
+    if active_classification is not None:
+        statement = statement.where(active_classification)
+    if searchable_field is not None:
+        statement = statement.where(searchable_field)
+    if uploaded_from:
+        statement = statement.where(Document.uploaded_at >= uploaded_from)
+    if uploaded_to:
+        statement = statement.where(Document.uploaded_at <= uploaded_to)
+    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+    order = Document.uploaded_at.asc() if sort == "oldest" else Document.uploaded_at.desc()
+    documents = db.scalars(statement.order_by(order, Document.id).offset((page - 1) * page_size).limit(page_size)).all()
+    items = []
+    for document in documents:
+        classification = db.scalar(select(ClassificationResult).where(
+            ClassificationResult.document_id == document.id,
+            ClassificationResult.is_active.is_(True),
+        ).order_by(ClassificationResult.processed_at.desc()))
+        family_value = classification.family.value if classification else "processing"
+        items.append(OrganizedDocumentResponse(
+            **doc_response(document).model_dump(), family=family_value,
+            organization_label=("Unknown documents" if family_value == "unknown" else family_value.replace("_", " ").title()),
+        ))
+    return DocumentSearchResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

@@ -1,6 +1,6 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance through IN-TC-002, including 22 frozen catalogue IDs",
+  "scope": "Runtime acceptance through OR-TC-004 and SR-TC-003, including 29 frozen catalogue IDs",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -120,6 +120,37 @@
       "steps": {"1": "multiple owner documents selected by ID", "2": "valid CSV with exact stable headers", "3": "cross-family rows use a documented normalized field layout", "4": "missing values use empty value/confidence plus explicit not_found trust_state", "5": "provenance and confidence retained per field", "6": "sensitive values remain masked", "7": "foreign or missing document IDs fail the entire owner-scoped request", "8": "machine-readable CSV saved as evidence"},
       "evidence": "interoperability/IN-TC-002-export.csv",
       "claim_limit": "V1 supports up to 100 selected documents per request; no unmasked bulk export"
+    },
+    "OR-TC-001": {
+      "pytest": ["test_OR_TC_001_known_document_auto_organization"],
+      "steps": {"1": "known document uploaded", "2": "classification persisted", "3": "family-derived organization returned", "4": "document remains owner scoped"}
+    },
+    "OR-TC-002": {
+      "pytest": ["test_OR_TC_002_unknown_document_visible_organization"],
+      "steps": {"1": "out-of-distribution document uploaded", "2": "Unknown retained", "3": "Unknown documents label returned", "4": "document remains visible"}
+    },
+    "OR-TC-003": {
+      "pytest": ["test_OR_TC_003_duplicate_choice_preserves_organization"],
+      "steps": {"1": "canonical document uploaded", "2": "duplicate detected", "3": "explicit keep action accepted", "4": "kept copy linked to canonical document"}
+    },
+    "OR-TC-004": {
+      "pytest": ["test_OR_TC_004_organization_metadata_is_stable"],
+      "steps": {"1": "classification family stored", "2": "organization label derived from stored family", "3": "repeat query stable", "4": "metadata returned with document"},
+      "schema_decision": "V1 organization is the persisted active classification family; display labels are deterministic and Unknown remains explicit"
+    },
+    "SR-TC-001": {
+      "pytest": ["test_SR_TC_001_filter_by_family"],
+      "steps": {"1": "multiple families uploaded", "2": "family filter applied", "3": "only requested family returned", "4": "owner scope retained", "5": "pagination metadata returned"}
+    },
+    "SR-TC-002": {
+      "pytest": ["test_SR_TC_002_search_structured_non_sensitive_values"],
+      "steps": {"1": "structured values extracted", "2": "non-sensitive value query applied", "3": "matching owner document returned", "4": "nonmatching documents excluded", "5": "sensitive account value query returns no match", "6": "raw sensitive value never returned"},
+      "security_decision": "Sensitive extracted fields are excluded from value-search matching"
+    },
+    "SR-TC-003": {
+      "pytest": ["test_SR_TC_003_date_sort_and_pagination"],
+      "steps": {"1": "dated documents uploaded", "2": "inclusive date range applied", "3": "newest/oldest order supported", "4": "stable ID tie-breaker used", "5": "page and page_size enforced", "6": "future range excludes existing documents"},
+      "claim_limit": "Database-backed owner search; performance qualification remains a later NFR gate"
     }
   }
 }

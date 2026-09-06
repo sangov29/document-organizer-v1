@@ -5,17 +5,18 @@ import { API } from '../../lib/api';
 type Doc = {id:string; original_filename:string; status:string; size_bytes:number; uploaded_at:string; duplicate_of_document_id?:string|null};
 type BulkItem = {filename:string; outcome:string; message?:string};
 export default function Documents() {
-  const [docs, setDocs] = useState<Doc[]>([]); const [selected, setSelected] = useState<string[]>([]); const [message, setMessage] = useState(''); const [bulk, setBulk] = useState<BulkItem[]>([]); const [pendingDuplicate, setPendingDuplicate] = useState<File|null>(null); const [ready, setReady] = useState(false);
+  const [docs, setDocs] = useState<Doc[]>([]); const [selected, setSelected] = useState<string[]>([]); const [message, setMessage] = useState(''); const [bulk, setBulk] = useState<BulkItem[]>([]); const [pendingDuplicate, setPendingDuplicate] = useState<File|null>(null); const [ready, setReady] = useState(false); const [family, setFamily] = useState(''); const [fieldValue, setFieldValue] = useState(''); const [uploadedFrom, setUploadedFrom] = useState(''); const [uploadedTo, setUploadedTo] = useState(''); const [page, setPage] = useState(1); const [total, setTotal] = useState(0);
   const token = () => localStorage.getItem('access_token') ?? '';
-  async function load() {
+  async function load(nextPage = page) {
     const accessToken = token();
     if (!accessToken) { window.location.href = '/login'; return; }
-    const r = await fetch(`${API}/api/v1/documents`, {headers:{Authorization:`Bearer ${accessToken}`}});
+    const params = new URLSearchParams({page:String(nextPage), page_size:'10'}); if (family) params.set('family', family); if (fieldValue) params.set('field_value', fieldValue); if (uploadedFrom) params.set('uploaded_from', `${uploadedFrom}T00:00:00Z`); if (uploadedTo) params.set('uploaded_to', `${uploadedTo}T23:59:59Z`);
+    const r = await fetch(`${API}/api/v1/documents/search?${params}`, {headers:{Authorization:`Bearer ${accessToken}`}});
     if (r.status === 401) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; }
-    if (r.ok) setDocs(await r.json());
+    if (r.ok) { const body = await r.json(); setDocs(body.items); setTotal(body.total); setPage(body.page); setSelected([]); }
     else setMessage('Documents could not be loaded.');
   }
-  useEffect(() => { setReady(true); load(); }, []);
+  useEffect(() => { setReady(true); load(1); }, []);
   async function logout() {
     const r = await fetch(`${API}/api/v1/auth/logout`, {method:'POST', headers:{Authorization:`Bearer ${token()}`}});
     if (r.ok) { localStorage.removeItem('access_token'); window.location.href = '/login'; } else setMessage('Logout failed');
@@ -50,5 +51,5 @@ export default function Documents() {
     {pendingDuplicate && <div className="card" role="alert"><strong>Duplicate detected</strong><div>This exact document already exists.</div><button onClick={keepDuplicate}>Keep another copy</button><button className="secondary" onClick={()=>{setPendingDuplicate(null);setMessage('Duplicate upload cancelled.');}}>Cancel</button></div>}
     <h2>Bulk upload</h2><form onSubmit={bulkUpload}><input name="files" type="file" accept="application/pdf,image/jpeg,image/png" multiple required/><button disabled={!ready}>Upload selected files</button></form>
     <p role="status">{message}</p>{bulk.map((i,idx)=><div className="card" key={`${i.filename}-${idx}`}><strong>{i.filename}</strong><div>{i.outcome}</div><div className="muted">{i.message}</div></div>)}
-    <h2>Your documents</h2>{docs.length > 0 && <p><button type="button" onClick={exportSelected}>Export selected CSV</button></p>}{docs.map(d=><div className="card" data-testid="document-card" key={d.id}><label><input type="checkbox" aria-label={`Select ${d.original_filename}`} checked={selected.includes(d.id)} onChange={event => setSelected(event.target.checked ? [...selected, d.id] : selected.filter(id => id !== d.id))}/> Select for export</label><br/><Link href={`/documents/${d.id}`}><strong>{d.original_filename}</strong></Link><div className="muted">{d.status} · {d.size_bytes} bytes{d.duplicate_of_document_id ? ' · kept duplicate' : ''}</div></div>)}</>;
+    <h2>Your documents</h2><form onSubmit={e=>{e.preventDefault();load(1);}} className="card"><label>Family<select aria-label="Filter by family" value={family} onChange={e=>setFamily(e.target.value)}><option value="">All families</option>{['identity','utility','banking','educational','employment','invoice_receipt','travel','unknown'].map(value=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label><label>Field value<input aria-label="Search field values" value={fieldValue} onChange={e=>setFieldValue(e.target.value)}/></label><label>Uploaded from<input type="date" value={uploadedFrom} onChange={e=>setUploadedFrom(e.target.value)}/></label><label>Uploaded to<input type="date" value={uploadedTo} onChange={e=>setUploadedTo(e.target.value)}/></label><button type="submit">Search documents</button></form>{docs.length > 0 && <p><button type="button" onClick={exportSelected}>Export selected CSV</button></p>}{docs.map(d=><div className="card" data-testid="document-card" key={d.id}><label><input type="checkbox" aria-label={`Select ${d.original_filename}`} checked={selected.includes(d.id)} onChange={event => setSelected(event.target.checked ? [...selected, d.id] : selected.filter(id => id !== d.id))}/> Select for export</label><br/><Link href={`/documents/${d.id}`}><strong>{d.original_filename}</strong></Link><div className="muted">{d.status} · {d.size_bytes} bytes{d.duplicate_of_document_id ? ' · kept duplicate' : ''}</div></div>)}<p>{total} document{total === 1 ? '' : 's'} · Page {page}</p><button type="button" disabled={page === 1} onClick={()=>load(page-1)}>Previous</button>{' '}<button type="button" disabled={page*10 >= total} onClick={()=>load(page+1)}>Next</button></>;
 }
