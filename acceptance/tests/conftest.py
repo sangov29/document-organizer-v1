@@ -316,7 +316,15 @@ def wait_for_preprocessing(document_id: str, *, timeout: float = 60.0) -> dict[s
                         "needs_review": result.needs_review,
                         "noise_reduction_applied": result.noise_reduction_applied,
                     })
-            if pages and len(results) == len(pages):
+            # The preprocessing row is flushed before OCR/classification and
+            # the final document status. Do not expose that intermediate race
+            # to callers that are asserting the completed routing decision.
+            if (
+                pages
+                and len(results) == len(pages)
+                and doc
+                and doc.status.value != "processing"
+            ):
                 return {"document_status": doc.status.value, "pages": results}
         finally:
             db.close()
