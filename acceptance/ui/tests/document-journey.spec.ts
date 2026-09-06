@@ -76,10 +76,13 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-amount\/review$/, async route => route.fulfill({json: correctedAnalysis}));
   await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-account\/reveal$/, async route => route.fulfill({headers:{'Cache-Control':'no-store'}, json:{subject_type:'extracted_field', subject_id:'field-account', sensitivity_type:'financial_account', revealed_value:'987654321012'}}));
   await page.route(/\/api\/v1\/documents\/[^/]+\/regions\/region-signature\/reveal$/, async route => route.fulfill({headers:{'Cache-Control':'no-store'}, json:{subject_type:'visual_region', subject_id:'region-signature', sensitivity_type:'signature', content_base64:PNG.toString('base64'), media_type:'image/png'}}));
+  await page.route(/\/api\/v1\/documents\/[^/]+\/export\.json$/, async route => route.fulfill({headers:{'Content-Type':'application/json'}, body:JSON.stringify({export_schema_version:'export-v0.1', sensitive_export_policy:'masked_no_bulk_reveal_v1'})}));
   await page.getByRole('link', {name: 'ui-proof-copy.png'}).click();
   await expect(page.getByTestId('document-detail')).toContainText(/kept duplicate/i);
   await expect(page.getByText('Duplicate of')).toBeVisible();
   await expect(page.getByTestId('classification')).toContainText('utility_bill');
+  await page.getByRole('button', {name:'Download JSON'}).click();
+  await expect(page.getByRole('status')).toContainText('JSON export downloaded.');
   await expect(page.getByTestId('field-amount_due')).toContainText('15,000');
   await page.getByLabel('Correct amount_due').fill('75,000');
   await page.getByTestId('field-amount_due').getByRole('button', {name: 'Save correction'}).click();
@@ -102,6 +105,10 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.screenshot({path: '/evidence/ui-document-detail.png', fullPage: true});
 
   await page.getByRole('link', {name: /Back to documents/}).click();
+  await page.route(/\/api\/v1\/documents\/batch\/export\.csv$/, async route => route.fulfill({headers:{'Content-Type':'text/csv'}, body:'document_id,field_name,value\nui-document,amount_due,75000\n'}));
+  await page.getByLabel('Select ui-proof-copy.png').check();
+  await page.getByRole('button', {name:'Export selected CSV'}).click();
+  await expect(page.getByRole('status')).toContainText('Exported 1 document.');
   const unusualName = '<img src=x onerror=alert(1)> & ui.png';
   await upload(unusualName, Buffer.concat([PNG, Buffer.from(suffix)]));
   await expect(page.getByRole('link', {name: unusualName})).toBeVisible();

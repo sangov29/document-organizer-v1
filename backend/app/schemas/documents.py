@@ -29,6 +29,10 @@ class BulkUploadResponse(BaseModel):
     failed_count: int
 
 
+class BatchExportRequest(BaseModel):
+    document_ids: list[str] = Field(min_length=1, max_length=100)
+
+
 class OCRWordResponse(BaseModel):
     text: str
     confidence: float

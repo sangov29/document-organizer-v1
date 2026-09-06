@@ -1,9 +1,13 @@
 import base64
+import csv
 import hashlib
+import io
+import json
 import uuid
 from io import BytesIO
 from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -18,7 +22,7 @@ from app.models import (
 )
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
-    BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
+    BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
     SensitiveRegionResponse, SensitiveRevealResponse,
@@ -29,6 +33,8 @@ from app.workers.celery_app import bootstrap_pipeline
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 ALLOWED_MIME = {"application/pdf", "image/jpeg", "image/png"}
+EXPORT_SCHEMA_VERSION = "export-v0.1"
+SENSITIVE_EXPORT_POLICY = "masked_no_bulk_reveal_v1"
 
 
 def doc_response(doc: Document) -> DocumentResponse:
@@ -341,6 +347,98 @@ def get_document_analysis(
         ),
         fields=field_responses,
         sensitive_regions=sensitive_regions,
+    )
+
+
+def _export_payload(document: Document, analysis: DocumentAnalysisResponse) -> dict:
+    return {
+        "export_schema_version": EXPORT_SCHEMA_VERSION,
+        "sensitive_export_policy": SENSITIVE_EXPORT_POLICY,
+        "document": doc_response(document).model_dump(mode="json"),
+        "classification": analysis.classification.model_dump(mode="json"),
+        "fields": [field.model_dump(mode="json") for field in analysis.fields],
+    }
+
+
+@router.get("/{document_id}/export.json")
+def export_document_json(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = db.scalar(select(Document).where(Document.id == document_id, Document.user_id == user.id))
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    analysis = get_document_analysis(document_id, db, user)
+    body = json.dumps(_export_payload(document, analysis), sort_keys=True, separators=(",", ":"))
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="document-{document_id}.json"',
+            "Cache-Control": "no-store, private",
+        },
+    )
+
+
+@router.post("/batch/export.csv")
+def export_documents_csv(
+    request: BatchExportRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        ids = list(dict.fromkeys(uuid.UUID(value) for value in request.document_ids))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Every document ID must be a UUID")
+    documents = db.scalars(
+        select(Document).where(Document.id.in_(ids), Document.user_id == user.id)
+    ).all()
+    by_id = {document.id: document for document in documents}
+    if len(by_id) != len(ids):
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    headers = [
+        "export_schema_version", "sensitive_export_policy", "document_id",
+        "original_filename", "family", "field_name", "value", "confidence",
+        "trust_state", "criticality", "schema_version", "provider",
+        "model_version", "method", "source_page_id", "visual_region_id",
+        "sensitivity_type", "masked",
+    ]
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=headers, lineterminator="\n")
+    writer.writeheader()
+    for document_id in ids:
+        document = by_id[document_id]
+        analysis = get_document_analysis(document_id, db, user)
+        for field in analysis.fields:
+            writer.writerow({
+                "export_schema_version": EXPORT_SCHEMA_VERSION,
+                "sensitive_export_policy": SENSITIVE_EXPORT_POLICY,
+                "document_id": str(document.id),
+                "original_filename": document.original_filename,
+                "family": analysis.classification.family,
+                "field_name": field.field_name,
+                "value": field.value or "",
+                "confidence": "" if field.confidence is None else field.confidence,
+                "trust_state": field.trust_state,
+                "criticality": field.criticality,
+                "schema_version": field.schema_version or "",
+                "provider": field.provenance.provider,
+                "model_version": field.provenance.model_version,
+                "method": field.provenance.method,
+                "source_page_id": field.provenance.source_page_id or "",
+                "visual_region_id": field.provenance.visual_region_id or "",
+                "sensitivity_type": field.sensitivity_type or "",
+                "masked": str(field.masked).lower(),
+            })
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=documents-export.csv",
+            "Cache-Control": "no-store, private",
+        },
     )
 
 

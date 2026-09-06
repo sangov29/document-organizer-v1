@@ -1,6 +1,6 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance through SEC-TC-001, including 20 frozen catalogue IDs",
+  "scope": "Runtime acceptance through IN-TC-002, including 22 frozen catalogue IDs",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -108,6 +108,18 @@
       "steps": {"1": "synthetic bank slip uploaded through public API", "2": "banking classification completes", "3": "account number is tagged and masked by default", "4": "normal analysis contains region metadata but no sensitive pixels/value", "5": "signature region is independently tagged and concealed", "6": "browser test proves passive interaction does not reveal", "7": "explicit owner account reveal leaves signature concealed", "8": "account reveal appends value-free audit event", "9": "refresh restores account masking", "10": "explicit owner signature reveal leaves account masked", "11": "refresh/reopen returns both subjects concealed", "12": "audit mutation routes are unavailable and a foreign account receives non-enumerating 404 responses"},
       "evidence": "security/SEC-TC-001-result.json, redacted public API responses, UI screenshot and functional JUnit",
       "claim_limit": "NFR-SEC-015 retention and NFR-PRIV-004/005 lifecycle periods remain blocked/TBD; V1 authorization means authenticated document owner"
+    },
+    "IN-TC-001": {
+      "pytest": ["test_IN_TC_001_stable_single_document_json_export"],
+      "steps": {"1": "owner-scoped public JSON export route", "2": "valid parseable JSON", "3": "stable versioned document and family metadata", "4": "field values, confidence and explicit not_found retained", "5": "document/page/region/provider/model/method provenance retained", "6": "corrected and confirmed trust states retained", "7": "repeat export is byte-stable", "8": "sensitive values remain masked under explicit V1 policy"},
+      "evidence": "interoperability/IN-TC-001-export.json and sensitive-export-policy.json",
+      "sensitive_policy": "masked_no_bulk_reveal_v1; unmasked access remains owner-only and audited through single-subject reveal endpoints"
+    },
+    "IN-TC-002": {
+      "pytest": ["test_IN_TC_002_multi_document_csv_export"],
+      "steps": {"1": "multiple owner documents selected by ID", "2": "valid CSV with exact stable headers", "3": "cross-family rows use a documented normalized field layout", "4": "missing values use empty value/confidence plus explicit not_found trust_state", "5": "provenance and confidence retained per field", "6": "sensitive values remain masked", "7": "foreign or missing document IDs fail the entire owner-scoped request", "8": "machine-readable CSV saved as evidence"},
+      "evidence": "interoperability/IN-TC-002-export.csv",
+      "claim_limit": "V1 supports up to 100 selected documents per request; no unmasked bulk export"
     }
   }
 }

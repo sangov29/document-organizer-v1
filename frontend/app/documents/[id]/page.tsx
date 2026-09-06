@@ -109,10 +109,19 @@ export default function DocumentDetail() {
     setMessage('Sensitive region temporarily revealed.');
   }
 
+  async function downloadJson() {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/export.json`, {headers:{Authorization:`Bearer ${token}`}, cache:'no-store'});
+    if (!response.ok) { setMessage('Document export could not be created.'); return; }
+    const url = URL.createObjectURL(await response.blob()); const a = window.document.createElement('a'); a.href = url; a.download = `document-${params.id}.json`; a.click(); URL.revokeObjectURL(url); setMessage('JSON export downloaded.');
+  }
+
   return <><p><Link href="/documents">← Back to documents</Link></p><h1>Document details</h1>
     <p role="status">{message}</p>
     {document && <div className="card" data-testid="document-detail">
       <h2>{document.original_filename}</h2>
+      <p><button type="button" onClick={downloadJson}>Download JSON</button></p>
       {document.duplicate_of_document_id && <p><strong>Kept duplicate</strong></p>}
       <dl><dt>Status</dt><dd>{document.status}</dd><dt>Type</dt><dd>{document.mime_type}</dd><dt>Size</dt><dd>{document.size_bytes} bytes</dd><dt>Uploaded</dt><dd>{new Date(document.uploaded_at).toLocaleString()}</dd><dt>SHA-256</dt><dd className="hash">{document.sha256}</dd>{document.duplicate_of_document_id && <><dt>Duplicate of</dt><dd className="hash">{document.duplicate_of_document_id}</dd></>}</dl>
     </div>}

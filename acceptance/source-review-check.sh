@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-python3 -m py_compile acceptance/tests/conftest.py acceptance/tests/fixtures.py acceptance/tests/test_um_runtime.py acceptance/tests/test_di_runtime.py acceptance/tests/test_pp_runtime.py acceptance/tests/test_cr_runtime.py acceptance/tests/test_cl_ex_runtime.py acceptance/tests/test_pr_runtime.py acceptance/tests/test_sec_runtime.py acceptance/tools/timing_probe.py acceptance/tools/sanitize_logs.py acceptance/tools/wait_for_stack.py backend/app/services/ocr.py backend/app/services/analysis.py backend/app/services/sensitivity.py
+python3 -m py_compile acceptance/tests/conftest.py acceptance/tests/fixtures.py acceptance/tests/test_um_runtime.py acceptance/tests/test_di_runtime.py acceptance/tests/test_pp_runtime.py acceptance/tests/test_cr_runtime.py acceptance/tests/test_cl_ex_runtime.py acceptance/tests/test_pr_runtime.py acceptance/tests/test_sec_runtime.py acceptance/tests/test_in_runtime.py acceptance/tools/timing_probe.py acceptance/tools/sanitize_logs.py acceptance/tools/wait_for_stack.py backend/app/api/documents.py backend/app/schemas/documents.py backend/app/services/ocr.py backend/app/services/analysis.py backend/app/services/sensitivity.py
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -15,8 +15,9 @@ expected = (
     | {'CL-TC-001', 'EX-TC-008', 'EX-TC-009'}
     | {'PR-TC-004'}
     | {'SEC-TC-001'}
+    | {'IN-TC-001', 'IN-TC-002'}
 )
 actual = set(m['tests'])
 assert actual == expected, (expected - actual, actual - expected)
-print('source-review checks passed: Python compile + exact 20-ID coverage map')
+print('source-review checks passed: Python compile + exact 22-ID coverage map')
 PY
