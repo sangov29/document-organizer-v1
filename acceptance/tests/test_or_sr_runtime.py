@@ -16,7 +16,7 @@ def _search(api, token, label, **params):
 
 @pytest.mark.catalogue("OR-TC-001", steps="1-4")
 def test_OR_TC_001_known_document_auto_organization(api, auth_token, run_id):
-    result = _upload_and_wait(api, auth_token, run_id, "or001-utility", ["UTILITY BILL", "Provider: Org One Energy"])
+    result = _upload_and_wait(api, auth_token, run_id, "or001-utility", ["UTILITY BILL", "ELECTRICITY SERVICE", "Amount Due: 10", "Provider: Org One Energy"])
     found = _search(api, auth_token, "OR-TC-001 organized known", family="utility", page_size=100)
     item = next(item for item in found["items"] if item["id"] == result["document_id"])
     assert item["family"] == "utility" and item["organization_label"] == "Utility"
@@ -41,7 +41,7 @@ def test_OR_TC_003_duplicate_choice_preserves_organization(api, auth_token, run_
 
 @pytest.mark.catalogue("OR-TC-004", steps="1-4")
 def test_OR_TC_004_organization_metadata_is_stable(api, auth_token, run_id):
-    result = _upload_and_wait(api, auth_token, run_id, "or004-banking", ["BANK STATEMENT", "Bank Name: Metadata Bank"])
+    result = _upload_and_wait(api, auth_token, run_id, "or004-banking", ["BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN", "Bank Name: Metadata Bank"])
     first = _search(api, auth_token, "OR-TC-004 first metadata", family="banking", page_size=100)
     second = _search(api, auth_token, "OR-TC-004 repeat metadata", family="banking", page_size=100)
     one = next(item for item in first["items"] if item["id"] == result["document_id"])
@@ -51,8 +51,8 @@ def test_OR_TC_004_organization_metadata_is_stable(api, auth_token, run_id):
 
 @pytest.mark.catalogue("SR-TC-001", steps="1-5")
 def test_SR_TC_001_filter_by_family(api, auth_token, run_id):
-    utility = _upload_and_wait(api, auth_token, run_id, "sr001-utility", ["UTILITY BILL", "Provider: Family Energy"])
-    _upload_and_wait(api, auth_token, run_id, "sr001-travel", ["BOARDING PASS", "Flight: SR101"])
+    utility = _upload_and_wait(api, auth_token, run_id, "sr001-utility", ["UTILITY BILL", "ELECTRICITY SERVICE", "Amount Due: 10", "Provider: Family Energy"])
+    _upload_and_wait(api, auth_token, run_id, "sr001-travel", ["BOARDING PASS", "FLIGHT", "ITINERARY", "Flight: SR101"])
     found = _search(api, auth_token, "SR-TC-001 family filter", family="utility", page_size=100)
     assert utility["document_id"] in {item["id"] for item in found["items"]}
     assert all(item["family"] == "utility" for item in found["items"])
@@ -61,9 +61,9 @@ def test_SR_TC_001_filter_by_family(api, auth_token, run_id):
 @pytest.mark.catalogue("SR-TC-002", steps="1-6")
 def test_SR_TC_002_search_structured_non_sensitive_values(api, auth_token, run_id):
     marker = f"Searchable-{run_id}"
-    utility = _upload_and_wait(api, auth_token, run_id, "sr002-utility", ["UTILITY BILL", f"Provider: {marker}"])
+    utility = _upload_and_wait(api, auth_token, run_id, "sr002-utility", ["UTILITY BILL", "ELECTRICITY SERVICE", "Amount Due: 10", f"Provider: {marker}"])
     raw_account = "987654321012"
-    _upload_and_wait(api, auth_token, run_id, "sr002-bank", ["BANK STATEMENT", f"Account Number: {raw_account}"])
+    _upload_and_wait(api, auth_token, run_id, "sr002-bank", ["BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN", f"Account Number: {raw_account}"])
     found = _search(api, auth_token, "SR-TC-002 structured search", field_value=marker, page_size=100)
     assert {item["id"] for item in found["items"]} == {utility["document_id"]}
     concealed = _search(api, auth_token, "SR-TC-002 sensitive search blocked", field_value=raw_account, page_size=100)
