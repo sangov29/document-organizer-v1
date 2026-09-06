@@ -72,7 +72,8 @@ def unsupported_bytes(run_id: str, label: str) -> bytes:
 
 
 def document_png(run_id: str, label: str, *, rotation: float = 0, blur: float = 0,
-                 contrast: str = "normal", size: tuple[int, int] = (1200, 1600)) -> bytes:
+                 contrast: str = "normal", size: tuple[int, int] = (1200, 1600),
+                 lines: list[str] | None = None) -> bytes:
     background = 245 if contrast == "normal" else 145
     foreground = 15 if contrast == "normal" else 135
     image = Image.new("RGB", size, (background,) * 3)
@@ -81,14 +82,14 @@ def document_png(run_id: str, label: str, *, rotation: float = 0, blur: float = 
         font = ImageFont.truetype("DejaVuSans.ttf", 38)
     except OSError:
         font = ImageFont.load_default()
-    lines = [
+    lines = (lines or [
         "DOCUMENT ORGANIZER ACCEPTANCE PAGE",
         f"Run {run_id} Fixture {label}",
         "Name: Synthetic Example Customer",
         "Reference: PP-TEST-2026-0001",
         "Date: 05 September 2026",
         "This page contains repeated readable text for orientation.",
-    ] * 4
+    ]) * 4
     for index, line in enumerate(lines):
         draw.text((80, 70 + index * 58), line, fill=(foreground,) * 3, font=font)
     if blur:

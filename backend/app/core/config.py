@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     ocr_language: str = "eng"
     ocr_tesseract_config: str = "--oem 1 --psm 6"
     ocr_review_confidence: float = 0.60
+    classification_known_threshold: float = 0.50
+    field_review_confidence: float = 0.75
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -50,3 +50,40 @@ class OCRPageResponse(BaseModel):
 class DocumentOCRResponse(BaseModel):
     document_id: str
     pages: list[OCRPageResponse]
+
+
+class ResultProvenanceResponse(BaseModel):
+    source_document_id: str
+    source_page_id: str | None
+    visual_region_id: str | None
+    provider: str
+    model_version: str
+    method: str
+    confidence: float | None
+    processed_at: datetime
+
+
+class ClassificationResponse(BaseModel):
+    family: str
+    confidence: float
+    provider: str
+    model_version: str
+    method: str
+    processed_at: datetime
+    configured_threshold: float
+    provenance: ResultProvenanceResponse
+
+
+class ExtractedFieldResponse(BaseModel):
+    field_name: str
+    value: str | None
+    confidence: float | None
+    trust_state: str
+    criticality: str
+    provenance: ResultProvenanceResponse
+
+
+class DocumentAnalysisResponse(BaseModel):
+    document_id: str
+    classification: ClassificationResponse
+    fields: list[ExtractedFieldResponse]

@@ -7,12 +7,16 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import create_email_verification_token, create_password_reset_token
 from app.db.session import SessionLocal
-from app.models import Document, OCRArtifact, Page, PreprocessingResult, ProcessingJob, User
-from app.models.enums import ProcessingStatus
+from app.models import (
+    ClassificationResult, Document, ExtractedField, OCRArtifact, Page,
+    PreprocessingResult, ProcessingJob, Provenance, User,
+)
+from app.models.enums import DocumentFamily, ProcessingStatus, TrustState
 from app.services.email import email_service
 from app.services.storage import storage
 from app.services.preprocessing import preprocess_page
 from app.services.ocr import recognize_page
+from app.services.analysis import classify_text, extract_unknown_fields
 
 celery = Celery("document_organizer", broker=settings.redis_url, backend=settings.redis_url)
 celery.conf.task_track_started = True
@@ -163,6 +167,82 @@ def _ocr_pages(db, document: Document, correlation_id: str) -> tuple[int, bool]:
     return len(pages), review_required
 
 
+def _analyze_document(db, document: Document, correlation_id: str) -> tuple[DocumentFamily, bool]:
+    existing = db.scalar(
+        select(ClassificationResult).where(
+            ClassificationResult.document_id == document.id,
+            ClassificationResult.is_active.is_(True),
+        ).order_by(ClassificationResult.processed_at.desc())
+    )
+    if existing:
+        return existing.family, existing.confidence < settings.classification_known_threshold
+
+    rows = db.execute(
+        select(Page, OCRArtifact)
+        .join(OCRArtifact, OCRArtifact.page_id == Page.id)
+        .where(Page.document_id == document.id)
+        .order_by(Page.page_number)
+    ).all()
+    if not rows:
+        raise RuntimeError("OCRArtifact missing before classification")
+
+    job = ProcessingJob(
+        document_id=document.id, stage="classification_extraction",
+        status=ProcessingStatus.PROCESSING, correlation_id=correlation_id,
+    )
+    db.add(job)
+    db.flush()
+    combined_text = "\n".join(artifact.text for _, artifact in rows)
+    decision = classify_text(combined_text)
+    classification = ClassificationResult(
+        document_id=document.id, family=decision.family,
+        confidence=decision.confidence, provider=decision.provider,
+        model_version=decision.model_version, method=decision.method,
+        is_active=True,
+    )
+    db.add(classification)
+    db.flush()
+    first_page = rows[0][0]
+    db.add(Provenance(
+        classification_result_id=classification.id,
+        source_document_id=document.id, source_page_id=first_page.id,
+        provider=decision.provider, model_version=decision.model_version,
+        method=decision.method, confidence=decision.confidence,
+    ))
+
+    field_review = False
+    if decision.family == DocumentFamily.UNKNOWN:
+        for field_decision in extract_unknown_fields(combined_text):
+            field = ExtractedField(
+                document_id=document.id, field_name=field_decision.name,
+                value=field_decision.value, confidence=field_decision.confidence,
+                trust_state=field_decision.trust_state,
+                criticality=field_decision.criticality, is_active=True,
+            )
+            db.add(field)
+            db.flush()
+            db.add(Provenance(
+                extracted_field_id=field.id,
+                source_document_id=document.id, source_page_id=first_page.id,
+                provider=decision.provider, model_version=decision.model_version,
+                method="generic_unknown_rules", confidence=field_decision.confidence,
+            ))
+            field_review = field_review or (
+                field_decision.trust_state == TrustState.UNCERTAIN
+                or (
+                    field_decision.confidence is not None
+                    and field_decision.confidence < settings.field_review_confidence
+                )
+            )
+    classification_review = (
+        decision.family != DocumentFamily.UNKNOWN
+        and decision.confidence < settings.classification_known_threshold
+    )
+    job.status = ProcessingStatus.NEEDS_REVIEW if classification_review or field_review else ProcessingStatus.READY
+    db.flush()
+    return decision.family, classification_review or field_review
+
+
 @celery.task(name="pipeline.bootstrap", bind=True, autoretry_for=(RuntimeError,), retry_backoff=True, max_retries=3)
 def bootstrap_pipeline(self, document_id: str):
     db = SessionLocal()
@@ -198,12 +278,21 @@ def bootstrap_pipeline(self, document_id: str):
 
         active_stage = "ocr"
         _, ocr_review = _ocr_pages(db, document, job.correlation_id)
+        db.commit()
+
+        active_stage = "classification_extraction"
+        family, analysis_review = _analyze_document(db, document, job.correlation_id)
         review_required = preprocessing_review or ocr_review
+        review_required = review_required or analysis_review
         # Printed-text OCR is complete. Later CL/EX stages are still pending;
         # degraded pages remain explicitly routed for review.
         document.status = ProcessingStatus.NEEDS_REVIEW if review_required else ProcessingStatus.QUEUED
         db.commit()
-        return {"document_id": document_id, "status": "ocr_ready", "page_count": page_count, "needs_review": review_required}
+        return {
+            "document_id": document_id, "status": "analysis_ready",
+            "page_count": page_count, "family": family.value,
+            "needs_review": review_required,
+        }
     except Exception as exc:
         db.rollback()
         document = db.get(Document, document_uuid) if document_uuid else None

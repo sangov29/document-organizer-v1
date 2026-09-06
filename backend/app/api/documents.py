@@ -8,11 +8,15 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import AuditEvent, Document, OCRArtifact, Page, ProcessingJob, User
+from app.models import (
+    AuditEvent, ClassificationResult, Document, ExtractedField, OCRArtifact,
+    Page, ProcessingJob, Provenance, User,
+)
 from app.models.enums import AuditEventType, ProcessingStatus
 from app.schemas.documents import (
-    BulkUploadItemResponse, BulkUploadResponse, DocumentOCRResponse,
-    DocumentResponse, OCRPageResponse,
+    BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
+    DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse,
+    ExtractedFieldResponse, OCRPageResponse, ResultProvenanceResponse,
 )
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
@@ -228,4 +232,75 @@ def get_document_ocr(
             )
             for page, artifact in rows
         ],
+    )
+
+
+def _provenance_response(provenance: Provenance) -> ResultProvenanceResponse:
+    return ResultProvenanceResponse(
+        source_document_id=str(provenance.source_document_id),
+        source_page_id=str(provenance.source_page_id) if provenance.source_page_id else None,
+        visual_region_id=str(provenance.visual_region_id) if provenance.visual_region_id else None,
+        provider=provenance.provider, model_version=provenance.model_version,
+        method=provenance.method, confidence=provenance.confidence,
+        processed_at=provenance.processed_at,
+    )
+
+
+@router.get("/{document_id}/analysis", response_model=DocumentAnalysisResponse)
+def get_document_analysis(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = db.scalar(
+        select(Document).where(Document.id == document_id, Document.user_id == user.id)
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    classification = db.scalar(
+        select(ClassificationResult).where(
+            ClassificationResult.document_id == document.id,
+            ClassificationResult.is_active.is_(True),
+        ).order_by(ClassificationResult.processed_at.desc())
+    )
+    if not classification:
+        raise HTTPException(status_code=202, detail="Classification is not complete")
+    classification_provenance = db.scalar(
+        select(Provenance).where(Provenance.classification_result_id == classification.id)
+    )
+    if not classification_provenance:
+        raise HTTPException(status_code=500, detail="Classification provenance is missing")
+
+    fields = db.scalars(
+        select(ExtractedField).where(
+            ExtractedField.document_id == document.id,
+            ExtractedField.is_active.is_(True),
+        ).order_by(ExtractedField.field_name)
+    ).all()
+    field_responses = []
+    for field in fields:
+        provenance = db.scalar(
+            select(Provenance).where(Provenance.extracted_field_id == field.id)
+        )
+        if not provenance:
+            raise HTTPException(status_code=500, detail="Field provenance is missing")
+        field_responses.append(ExtractedFieldResponse(
+            field_name=field.field_name, value=field.value,
+            confidence=field.confidence, trust_state=field.trust_state.value,
+            criticality=field.criticality,
+            provenance=_provenance_response(provenance),
+        ))
+    return DocumentAnalysisResponse(
+        document_id=str(document.id),
+        classification=ClassificationResponse(
+            family=classification.family.value,
+            confidence=classification.confidence,
+            provider=classification.provider,
+            model_version=classification.model_version,
+            method=classification.method,
+            processed_at=classification.processed_at,
+            configured_threshold=settings.classification_known_threshold,
+            provenance=_provenance_response(classification_provenance),
+        ),
+        fields=field_responses,
     )
