@@ -108,11 +108,20 @@ def extract_predefined_fields(family: DocumentFamily, text: str) -> list[Generic
     for name, (criticality, labels) in schema.items():
         alternatives = "|".join(re.escape(label) for label in labels)
         pattern = re.compile(rf"^\s*(?:{alternatives})\s*:\s*(.+?)\s*$", re.I | re.M)
+        inferred_pattern = re.compile(
+            rf"^\s*inferred\s+(?:{alternatives})\s*:\s*(.+?)\s*$", re.I | re.M
+        )
         match = pattern.search(text)
+        inferred_match = inferred_pattern.search(text) if not match else None
+        match = match or inferred_match
         value = match.group(1).strip() if match else None
         fields.append(GenericFieldDecision(
             name=name, value=value, confidence=0.90 if value else None,
-            trust_state=TrustState.EXTRACTED if value else TrustState.NOT_FOUND,
+            trust_state=(
+                TrustState.INFERRED if inferred_match
+                else TrustState.EXTRACTED if value
+                else TrustState.NOT_FOUND
+            ),
             criticality=criticality, schema_version=SCHEMA_VERSION,
         ))
     return fields
