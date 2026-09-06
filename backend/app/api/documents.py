@@ -321,6 +321,47 @@ def _classification_review_required(classification: ClassificationResult) -> boo
     )
 
 
+def _sensitive_regions_for_document(
+    db: Session, document_id: uuid.UUID, field_responses: list[ExtractedFieldResponse]
+) -> list[SensitiveRegionResponse]:
+    """Serialize direct region tags and field tags linked via provenance."""
+    direct_rows = db.execute(
+        select(VisualRegion, SensitivityTag)
+        .join(SensitivityTag, SensitivityTag.visual_region_id == VisualRegion.id)
+        .join(Page, Page.id == VisualRegion.page_id)
+        .where(Page.document_id == document_id)
+    ).all()
+    field_rows = db.execute(
+        select(VisualRegion, SensitivityTag)
+        .join(Provenance, Provenance.visual_region_id == VisualRegion.id)
+        .join(ExtractedField, ExtractedField.id == Provenance.extracted_field_id)
+        .join(SensitivityTag, SensitivityTag.extracted_field_id == ExtractedField.id)
+        .join(Page, Page.id == VisualRegion.page_id)
+        .where(Page.document_id == document_id, ExtractedField.is_active.is_(True))
+    ).all()
+
+    serialized: dict[uuid.UUID, SensitiveRegionResponse] = {}
+    for region, tag in [*direct_rows, *field_rows]:
+        response = SensitiveRegionResponse(
+            id=str(region.id), region_type=region.region_type,
+            sensitivity_type=tag.sensitivity_type, bbox=region.bbox,
+        )
+        existing = serialized.get(region.id)
+        if existing is not None and existing != response:
+            raise HTTPException(status_code=500, detail="Sensitive region has conflicting tags")
+        serialized[region.id] = response
+
+    referenced_ids = {
+        field.provenance.visual_region_id
+        for field in field_responses
+        if field.sensitive and field.provenance.visual_region_id is not None
+    }
+    missing_ids = referenced_ids - {str(region_id) for region_id in serialized}
+    if missing_ids:
+        raise HTTPException(status_code=500, detail="Sensitive field region is missing")
+    return [serialized[key] for key in sorted(serialized, key=str)]
+
+
 @router.get("/{document_id}/analysis", response_model=DocumentAnalysisResponse)
 def get_document_analysis(
     document_id: uuid.UUID,
@@ -382,19 +423,7 @@ def get_document_analysis(
             sensitivity_type=sensitivity.sensitivity_type if sensitivity else None,
             masked=is_sensitive and field.value is not None,
         ))
-    sensitive_regions = [
-        SensitiveRegionResponse(
-            id=str(region.id), region_type=region.region_type,
-            sensitivity_type=tag.sensitivity_type, bbox=region.bbox,
-        )
-        for region, tag in db.execute(
-            select(VisualRegion, SensitivityTag)
-            .join(SensitivityTag, SensitivityTag.visual_region_id == VisualRegion.id)
-            .join(Page, Page.id == VisualRegion.page_id)
-            .where(Page.document_id == document.id)
-            .order_by(VisualRegion.id)
-        ).all()
-    ]
+    sensitive_regions = _sensitive_regions_for_document(db, document.id, field_responses)
     return DocumentAnalysisResponse(
         document_id=str(document.id),
         classification=ClassificationResponse(

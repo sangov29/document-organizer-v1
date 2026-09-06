@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import struct
 import zlib
@@ -7,6 +8,17 @@ from io import BytesIO
 
 from pypdf import PdfWriter
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+# Tiny valid JPEG, used as a deterministic base and made unique with a JPEG COM segment.
+_JPEG_BASE = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////"
+    "2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/"
+    "xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAqf/"
+    "xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/Aaf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/Aaf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/Aqf/"
+    "xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IV//2gAMAwEAAgADAAAAEP/EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8QH//EABQRAQAAAAAAAAAAAAAAAAAAABD/"
+    "2gAIAQIBAT8QH//EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEAAT8QH//Z"
+)
+
 
 def _tag(run_id: str, label: str) -> str:
     return hashlib.sha256(f"{run_id}:{label}".encode()).hexdigest()[:24]
@@ -48,19 +60,18 @@ def png_bytes(run_id: str, label: str) -> bytes:
 
 
 def jpeg_bytes(run_id: str, label: str) -> bytes:
-    tag = _tag(run_id, label)
-    colour = tuple(bytes.fromhex(tag[:6]))
-    image = Image.new("RGB", (64, 64), colour)
+    # Generate a complete decodable image. The former one-pixel embedded JPEG
+    # was sufficient for upload-only tests but exposed a truncated scan stream
+    # once PP began loading pixel data.
+    image = Image.new("RGB", (800, 1000), "white")
+    draw = ImageDraw.Draw(image)
+    marker = f"{run_id}:{label}:{_tag(run_id, label)}"
+    draw.rectangle((40, 40, 760, 960), outline="black", width=4)
+    for index in range(12):
+        draw.text((80, 90 + index * 65), f"Document Organizer {index + 1:02d} {marker}", fill="black")
     output = BytesIO()
-    image.save(output, "JPEG", quality=90, optimize=False, progressive=False)
-    base = output.getvalue()
-
-    comment = f"{run_id}:{label}:{tag}".encode()
-    segment = b"\xff\xfe" + struct.pack(">H", len(comment) + 2) + comment
-    data = base[:2] + segment + base[2:]
-    with Image.open(BytesIO(data)) as decoded:
-        decoded.load()
-    return data
+    image.save(output, "JPEG", quality=90, optimize=True)
+    return output.getvalue()
 
 
 def malformed_pdf_bytes(run_id: str, label: str) -> bytes:
@@ -90,8 +101,16 @@ def document_png(run_id: str, label: str, *, rotation: float = 0, blur: float = 
         "Date: 05 September 2026",
         "This page contains repeated readable text for orientation.",
     ]) * 4
+    max_line_width = size[0] - 160
     for index, line in enumerate(lines):
-        draw.text((80, 70 + index * 58), line, fill=(foreground,) * 3, font=font)
+        line_font = font
+        # The generated image is the OCR input contract. Fit long lines so the
+        # final glyph is present rather than silently clipped at the right edge.
+        line_width = draw.textlength(line, font=font)
+        if hasattr(font, "size") and line_width > max_line_width:
+            fitted_size = max(20, int(font.size * max_line_width / line_width))
+            line_font = ImageFont.truetype("DejaVuSans.ttf", fitted_size)
+        draw.text((80, 70 + index * 58), line, fill=(foreground,) * 3, font=line_font)
     if blur:
         image = image.filter(ImageFilter.GaussianBlur(blur))
     if rotation:

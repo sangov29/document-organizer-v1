@@ -90,7 +90,11 @@ def test_PR_TC_002_bounding_region(api, evidence, auth_token, run_id):
     account = {f["field_name"]: f for f in result["fields"]}["account_number"]
     region_id = account["provenance"]["visual_region_id"]
     assert region_id
-    region = next(r for r in result["sensitive_regions"] if r["id"] == region_id)
+    matching_regions = [r for r in result["sensitive_regions"] if r["id"] == region_id]
+    assert len(matching_regions) == 1
+    region = matching_regions[0]
+    assert region["region_type"] == "sensitive_field"
+    assert region["sensitivity_type"] == "financial_account"
     assert set(region["bbox"]) == {"x", "y", "width", "height"}
     assert all(isinstance(region["bbox"][key], int) for key in region["bbox"])
     assert all(region["bbox"][key] >= 0 for key in ("x", "y", "width", "height"))

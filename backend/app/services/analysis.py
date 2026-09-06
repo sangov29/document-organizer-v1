@@ -107,9 +107,16 @@ def extract_predefined_fields(family: DocumentFamily, text: str) -> list[Generic
     fields = []
     for name, (criticality, labels) in schema.items():
         alternatives = "|".join(re.escape(label) for label in labels)
-        pattern = re.compile(rf"^\s*(?:{alternatives})\s*:\s*(.+?)\s*$", re.I | re.M)
+        # Keep the value boundary line-local. ``\s`` also includes newlines;
+        # explicit horizontal whitespace plus a greedy non-newline capture
+        # preserves the final non-space character.
+        pattern = re.compile(
+            rf"^[ \t]*(?:{alternatives})[ \t]*:[ \t]*([^\r\n]*\S)[ \t]*$",
+            re.I | re.M,
+        )
         inferred_pattern = re.compile(
-            rf"^\s*inferred\s+(?:{alternatives})\s*:\s*(.+?)\s*$", re.I | re.M
+            rf"^[ \t]*inferred[ \t]+(?:{alternatives})[ \t]*:[ \t]*([^\r\n]*\S)[ \t]*$",
+            re.I | re.M,
         )
         match = pattern.search(text)
         inferred_match = inferred_pattern.search(text) if not match else None
