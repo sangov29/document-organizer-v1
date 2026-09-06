@@ -18,7 +18,7 @@ Authority: `RTM_v0.2_Traceability_Baseline_Candidate.md`, the implemented public
 
 ### EX-TC-001 — Predefined family fields
 
-Upload Identity, Utility and Banking fixtures; verify the active versioned schema is selected and every defined field is attempted.
+Upload Identity, Utility, Banking and Invoice/Receipt fixtures; verify the active versioned schema is selected and every defined field is attempted. For Invoice/Receipt, verify invoice number, invoice date and total amount individually as critical fields.
 
 ### EX-TC-002 — Field confidence
 

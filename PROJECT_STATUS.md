@@ -40,7 +40,7 @@ Run #31 also closes the two defects found by Run #30:
 - Orientation correction, quality/blur/resolution assessment and deskew routing
 - Printed-text OCR with page, word and bounding-box lineage
 - Seven known classification families plus explicit `unknown`
-- Versioned predefined and generic extraction with confidence, criticality and explicit `not_found`
+- Versioned predefined extraction for Identity, Utility, Banking and Invoice/Receipt, plus generic Unknown extraction with confidence, criticality and explicit `not_found`
 - Classification/field review, correction, confirmation and history preservation
 - Organization, owner-scoped search, date sorting and pagination
 - Stable JSON and normalized multi-document CSV export

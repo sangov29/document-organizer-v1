@@ -54,6 +54,20 @@ PREDEFINED_SCHEMAS: dict[DocumentFamily, dict[str, tuple[str, tuple[str, ...]]]]
         "bank_name": ("standard", ("Bank Name", "Bank")),
         "statement_date": ("standard", ("Statement Date",)),
     },
+    DocumentFamily.INVOICE_RECEIPT: {
+        "vendor_name": ("standard", ("Vendor Name", "Supplier", "Merchant")),
+        "invoice_number": (
+            "critical",
+            ("Invoice Number", "Invoice No", "Receipt Number", "Receipt No"),
+        ),
+        "invoice_date": ("critical", ("Invoice Date", "Receipt Date", "Date")),
+        "customer_name": ("standard", ("Customer Name", "Bill To")),
+        "subtotal": ("standard", ("Subtotal", "Sub Total")),
+        "tax_amount": ("standard", ("Tax Amount", "Tax", "GST", "VAT")),
+        "total_amount": ("critical", ("Total Amount", "Grand Total", "Total")),
+        "currency": ("standard", ("Currency",)),
+        "payment_due_date": ("standard", ("Payment Due Date", "Due Date")),
+    },
 }
 
 

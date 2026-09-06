@@ -24,7 +24,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 - PDF page splitting, orientation correction, quality assessment and deskew
 - Printed-text OCR with page/word lineage and bounding boxes
 - Seven known document families plus explicit `unknown`
-- Versioned predefined/generic fields, confidence, criticality and `not_found`
+- Versioned predefined fields for Identity, Utility, Banking and Invoice/Receipt, plus generic Unknown fields, confidence, criticality and `not_found`
 - Classification and field confirmation/correction with audit history
 - Provenance linking classification and fields to documents, pages and regions
 - Automatic organization, search, date sorting and pagination

@@ -122,6 +122,15 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
             "Account Number: AC123456", "Due Date: 30 September 2026",
             "Provider: Example Energy",
         ],
+        "invoice_receipt": [
+            "TAX INVOICE", "RECEIPT", "TOTAL",
+            "Vendor Name: Example Office Supplies",
+            "Invoice Number: INV-2026-0042",
+            "Invoice Date: 06 September 2026",
+            "Customer Name: Gov Test", "Subtotal: 1,000.00",
+            "Tax Amount: 180.00", "Total Amount: 1,180.00",
+            "Currency: INR",
+        ],
     }
     expected = {
         "identity": {
@@ -134,6 +143,13 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
             "account_holder": "critical", "service_address": "critical",
             "consumer_account_number": "critical", "billing_period": "standard",
             "amount_due": "critical", "due_date": "critical", "provider": "standard",
+        },
+        "invoice_receipt": {
+            "vendor_name": "standard", "invoice_number": "critical",
+            "invoice_date": "critical", "customer_name": "standard",
+            "subtotal": "standard", "tax_amount": "standard",
+            "total_amount": "critical", "currency": "standard",
+            "payment_due_date": "standard",
         },
     }
     results = {}
@@ -162,6 +178,13 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
     # explicit not_found rather than omitted or represented as an empty value.
     utility_fields = {f["field_name"]: f for f in results["utility"]["fields"]}
     assert utility_fields["billing_period"]["trust_state"] == "not_found"
+    invoice_fields = {
+        f["field_name"]: f for f in results["invoice_receipt"]["fields"]
+    }
+    assert invoice_fields["invoice_number"]["value"] == "INV-2026-0042"
+    assert invoice_fields["invoice_date"]["value"] == "06 September 2026"
+    assert invoice_fields["total_amount"]["value"] == "1,180.00"
+    assert invoice_fields["payment_due_date"]["trust_state"] == "not_found"
     evidence.note("versioned-predefined-fields", results)
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)
@@ -198,6 +221,20 @@ def test_EX_TC_001_predefined_family_fields(api, evidence, auth_token, run_id):
                 "Account Number: 112233445566", "Statement Date: 01 September 2026",
             ],
             {"account_holder", "account_number", "bank_name", "statement_date"},
+        ),
+        "invoice_receipt": (
+            [
+                "TAX INVOICE", "RECEIPT", "TOTAL",
+                "Vendor Name: Example Office Supplies",
+                "Invoice Number: INV-2026-0042",
+                "Invoice Date: 06 September 2026",
+                "Customer Name: Alex Example", "Subtotal: 1,000.00",
+                "Tax Amount: 180.00", "Total Amount: 1,180.00",
+                "Currency: INR",
+            ],
+            {"vendor_name", "invoice_number", "invoice_date", "customer_name",
+             "subtotal", "tax_amount", "total_amount", "currency",
+             "payment_due_date"},
         ),
     }
     results = {}

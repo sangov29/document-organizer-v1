@@ -281,15 +281,15 @@
         "test_EX_TC_008_versioned_predefined_field_criticality"
       ],
       "steps": {
-        "1": "versioned starter schemas are selected for Identity and Utility",
+        "1": "versioned starter schemas are selected for Identity, Utility and Invoice/Receipt",
         "2": "every expected field is attempted",
         "3": "each field is explicitly critical or standard",
         "4": "found values carry independent field confidence",
-        "5": "an absent billing period is explicit not_found",
+        "5": "absent billing period and payment due date fields are explicit not_found",
         "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"
       },
       "evidence": "analysis/EX-TC-008-results.json and recorded public API responses",
-      "schema_decision": "schema-v0.1; Utility fields come from the agreed example, while the Identity starter list is a new versioned implementation decision",
+      "schema_decision": "schema-v0.1; Invoice/Receipt defines invoice number, invoice date and total amount as individually critical, with bounded standard vendor/customer/subtotal/tax/currency/payment-due fields",
       "claim_limit": "Deterministic rule fixtures only; correction/confirmation UI and corpus extraction accuracy remain later gates"
     },
     "EX-TC-009": {
@@ -516,7 +516,7 @@
         "test_EX_TC_001_predefined_family_fields"
       ],
       "steps": {
-        "1": "Identity, Utility and Banking fixtures uploaded through the public API",
+        "1": "Identity, Utility, Banking and Invoice/Receipt fixtures uploaded through the public API",
         "2": "active versioned schema (schema-v0.1) selected per family",
         "3": "every defined field for each family is attempted, found or explicit not_found"
       },
