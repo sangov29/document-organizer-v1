@@ -62,9 +62,11 @@ def test_SR_TC_001_filter_by_family(api, auth_token, run_id):
 def test_SR_TC_002_search_structured_non_sensitive_values(api, auth_token, run_id):
     marker = f"Searchable-{run_id}"
     utility = _upload_and_wait(api, auth_token, run_id, "sr002-utility", ["UTILITY BILL", "ELECTRICITY SERVICE", "Amount Due: 10", f"Provider: {marker}"])
+    extracted_provider = next(field for field in utility["fields"] if field["field_name"] == "provider")["value"]
+    assert extracted_provider
     raw_account = "987654321012"
     _upload_and_wait(api, auth_token, run_id, "sr002-bank", ["BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN", f"Account Number: {raw_account}"])
-    found = _search(api, auth_token, "SR-TC-002 structured search", field_value=marker, page_size=100)
+    found = _search(api, auth_token, "SR-TC-002 structured search", field_value=extracted_provider, page_size=100)
     assert {item["id"] for item in found["items"]} == {utility["document_id"]}
     concealed = _search(api, auth_token, "SR-TC-002 sensitive search blocked", field_value=raw_account, page_size=100)
     assert concealed["total"] == 0
