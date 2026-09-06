@@ -61,12 +61,21 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
       id: 'field-amount', field_name: 'amount_due', value: '15,000', confidence: 0.91,
       trust_state: 'extracted', criticality: 'critical', schema_version: 'schema-v0.1', corrections: [],
       provenance: {id: 'provenance-1', source_document_id: 'ui-document', source_page_id: 'page-1', visual_region_id: 'region-1', provider: 'tesseract', model_version: '5', method: 'regex', confidence: 0.91, processed_at: new Date().toISOString()},
+      sensitive: false, sensitivity_type: null, masked: false,
+    }, {
+      id: 'field-account', field_name: 'account_number', value: '••••••••1012', confidence: 0.94,
+      trust_state: 'extracted', criticality: 'critical', schema_version: 'schema-v0.1', corrections: [],
+      provenance: {id: 'provenance-account', source_document_id: 'ui-document', source_page_id: 'page-1', visual_region_id: 'region-account', provider: 'tesseract', model_version: '5', method: 'predefined_field_rules', confidence: 0.94, processed_at: new Date().toISOString()},
+      sensitive: true, sensitivity_type: 'financial_account', masked: true,
     }],
+    sensitive_regions: [{id: 'region-signature', region_type: 'signature', sensitivity_type: 'signature', bbox: {x: 100, y: 100, width: 220, height: 50}, concealed: true}],
   };
   const correctedAnalysis = JSON.parse(JSON.stringify(originalAnalysis));
   correctedAnalysis.fields[0] = {...correctedAnalysis.fields[0], value: '75,000', confidence: null, trust_state: 'corrected', corrections: [{id: 'correction-1', prior_value: '15,000', corrected_value: '75,000', user_id: 'ui-user', prior_provenance_id: 'provenance-1', created_at: new Date().toISOString()}]};
   await page.route(/\/api\/v1\/documents\/[^/]+\/analysis$/, async route => route.fulfill({json: originalAnalysis}));
   await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-amount\/review$/, async route => route.fulfill({json: correctedAnalysis}));
+  await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-account\/reveal$/, async route => route.fulfill({headers:{'Cache-Control':'no-store'}, json:{subject_type:'extracted_field', subject_id:'field-account', sensitivity_type:'financial_account', revealed_value:'987654321012'}}));
+  await page.route(/\/api\/v1\/documents\/[^/]+\/regions\/region-signature\/reveal$/, async route => route.fulfill({headers:{'Cache-Control':'no-store'}, json:{subject_type:'visual_region', subject_id:'region-signature', sensitivity_type:'signature', content_base64:PNG.toString('base64'), media_type:'image/png'}}));
   await page.getByRole('link', {name: 'ui-proof-copy.png'}).click();
   await expect(page.getByTestId('document-detail')).toContainText(/kept duplicate/i);
   await expect(page.getByText('Duplicate of')).toBeVisible();
@@ -76,6 +85,20 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.getByTestId('field-amount_due').getByRole('button', {name: 'Save correction'}).click();
   await expect(page.getByRole('status')).toContainText('Correction saved.');
   await expect(page.getByTestId('field-amount_due')).toContainText('15,000 → 75,000');
+  const accountField = page.getByTestId('field-account_number');
+  await expect(accountField).toContainText('••••••••1012 (masked)');
+  await accountField.hover();
+  await accountField.getByRole('button', {name:'Reveal account number'}).focus();
+  await expect(page.getByText('987654321012')).toHaveCount(0);
+  await accountField.getByRole('button', {name:'Reveal account number'}).click();
+  await expect(accountField).toContainText('987654321012');
+  await expect(page.getByTestId('region-signature')).toContainText('Sensitive region concealed');
+  await page.reload();
+  await expect(page.getByTestId('field-account_number')).toContainText('••••••••1012 (masked)');
+  await expect(page.getByText('987654321012')).toHaveCount(0);
+  await page.getByTestId('region-signature').getByRole('button', {name:'Reveal signature'}).click();
+  await expect(page.getByAltText('Temporarily revealed signature')).toBeVisible();
+  await expect(page.getByTestId('field-account_number')).toContainText('••••••••1012 (masked)');
   await page.screenshot({path: '/evidence/ui-document-detail.png', fullPage: true});
 
   await page.getByRole('link', {name: /Back to documents/}).click();

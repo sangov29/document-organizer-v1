@@ -1,7 +1,10 @@
+import base64
 import hashlib
 import uuid
+from io import BytesIO
 from typing import Literal
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -10,14 +13,17 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
     AuditEvent, ClassificationResult, Correction, Document, ExtractedField,
-    OCRArtifact, Page, ProcessingJob, Provenance, User,
+    OCRArtifact, Page, PreprocessingResult, ProcessingJob, Provenance,
+    SensitivityTag, User, VisualRegion,
 )
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
     BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
+    SensitiveRegionResponse, SensitiveRevealResponse,
 )
+from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text, mask_sensitive_value
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
 
@@ -225,8 +231,8 @@ def get_document_ocr(
         pages=[
             OCRPageResponse(
                 page_id=str(page.id), page_number=page.page_number,
-                text=artifact.text, confidence=artifact.confidence,
-                blocks=artifact.blocks, provider=artifact.provider,
+                text=mask_ocr_text(artifact.text), confidence=artifact.confidence,
+                blocks=mask_ocr_blocks(artifact.blocks), provider=artifact.provider,
                 model_version=artifact.model_version, method=artifact.method,
                 language=artifact.language, processed_at=artifact.created_at,
             )
@@ -285,14 +291,42 @@ def get_document_analysis(
         )
         if not provenance:
             raise HTTPException(status_code=500, detail="Field provenance is missing")
+        sensitivity = db.scalar(
+            select(SensitivityTag).where(SensitivityTag.extracted_field_id == field.id)
+        )
+        is_sensitive = sensitivity is not None
         field_responses.append(ExtractedFieldResponse(
             id=str(field.id),
-            field_name=field.field_name, value=field.value,
+            field_name=field.field_name,
+            value=mask_sensitive_value(field.value) if is_sensitive else field.value,
             confidence=field.confidence, trust_state=field.trust_state.value,
             criticality=field.criticality, schema_version=field.schema_version,
             provenance=_provenance_response(provenance),
-            corrections=[{"id": str(c.id), "prior_value": c.prior_value, "corrected_value": c.corrected_value, "user_id": str(c.user_id), "prior_provenance_id": str(c.prior_provenance_id) if c.prior_provenance_id else None, "created_at": c.created_at} for c in db.scalars(select(Correction).where(Correction.extracted_field_id == field.id).order_by(Correction.created_at)).all()],
+            corrections=[{
+                "id": str(c.id),
+                "prior_value": mask_sensitive_value(c.prior_value) if is_sensitive else c.prior_value,
+                "corrected_value": mask_sensitive_value(c.corrected_value) if is_sensitive else c.corrected_value,
+                "user_id": str(c.user_id),
+                "prior_provenance_id": str(c.prior_provenance_id) if c.prior_provenance_id else None,
+                "created_at": c.created_at,
+            } for c in db.scalars(select(Correction).where(Correction.extracted_field_id == field.id).order_by(Correction.created_at)).all()],
+            sensitive=is_sensitive,
+            sensitivity_type=sensitivity.sensitivity_type if sensitivity else None,
+            masked=is_sensitive and field.value is not None,
         ))
+    sensitive_regions = [
+        SensitiveRegionResponse(
+            id=str(region.id), region_type=region.region_type,
+            sensitivity_type=tag.sensitivity_type, bbox=region.bbox,
+        )
+        for region, tag in db.execute(
+            select(VisualRegion, SensitivityTag)
+            .join(SensitivityTag, SensitivityTag.visual_region_id == VisualRegion.id)
+            .join(Page, Page.id == VisualRegion.page_id)
+            .where(Page.document_id == document.id)
+            .order_by(VisualRegion.id)
+        ).all()
+    ]
     return DocumentAnalysisResponse(
         document_id=str(document.id),
         classification=ClassificationResponse(
@@ -306,6 +340,7 @@ def get_document_analysis(
             provenance=_provenance_response(classification_provenance),
         ),
         fields=field_responses,
+        sensitive_regions=sensitive_regions,
     )
 
 
@@ -328,3 +363,95 @@ def review_field(document_id: uuid.UUID, field_id: uuid.UUID, request: FieldRevi
     db.add(AuditEvent(user_id=user.id, event_type=event, target_type="extracted_field", target_id=str(field.id), metadata_json={"action": request.action, "field_name": field.field_name}))
     db.commit()
     return get_document_analysis(document_id, db, user)
+
+
+@router.post("/{document_id}/fields/{field_id}/reveal", response_model=SensitiveRevealResponse)
+def reveal_sensitive_field(
+    document_id: uuid.UUID,
+    field_id: uuid.UUID,
+    response: Response,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    field = db.scalar(
+        select(ExtractedField)
+        .join(Document, Document.id == ExtractedField.document_id)
+        .where(
+            ExtractedField.id == field_id,
+            ExtractedField.document_id == document_id,
+            Document.user_id == user.id,
+            ExtractedField.is_active.is_(True),
+        )
+    )
+    sensitivity = db.scalar(
+        select(SensitivityTag).where(SensitivityTag.extracted_field_id == field.id)
+    ) if field else None
+    if not field or not sensitivity:
+        raise HTTPException(status_code=404, detail="Sensitive field not found")
+    db.add(AuditEvent(
+        user_id=user.id, event_type=AuditEventType.SENSITIVE_REVEAL,
+        target_type="extracted_field", target_id=str(field.id),
+        metadata_json={
+            "action": "reveal", "subject_type": "extracted_field",
+            "field_name": field.field_name,
+            "sensitivity_type": sensitivity.sensitivity_type,
+        },
+    ))
+    db.commit()
+    response.headers["Cache-Control"] = "no-store, private"
+    return SensitiveRevealResponse(
+        subject_type="extracted_field", subject_id=str(field.id),
+        sensitivity_type=sensitivity.sensitivity_type,
+        revealed_value=field.value,
+    )
+
+
+@router.post("/{document_id}/regions/{region_id}/reveal", response_model=SensitiveRevealResponse)
+def reveal_sensitive_region(
+    document_id: uuid.UUID,
+    region_id: uuid.UUID,
+    response: Response,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = db.execute(
+        select(VisualRegion, SensitivityTag, PreprocessingResult)
+        .join(Page, Page.id == VisualRegion.page_id)
+        .join(Document, Document.id == Page.document_id)
+        .join(SensitivityTag, SensitivityTag.visual_region_id == VisualRegion.id)
+        .join(PreprocessingResult, PreprocessingResult.page_id == Page.id)
+        .where(
+            VisualRegion.id == region_id,
+            Page.document_id == document_id,
+            Document.user_id == user.id,
+        )
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Sensitive region not found")
+    region, sensitivity, preprocessing = row
+    source = Image.open(BytesIO(storage.get_bytes(preprocessing.normalized_object_key))).convert("RGB")
+    box = region.bbox
+    padding = 8
+    left = max(0, box["x"] - padding)
+    top = max(0, box["y"] - padding)
+    right = min(source.width, box["x"] + box["width"] + padding)
+    bottom = min(source.height, box["y"] + box["height"] + padding)
+    output = BytesIO()
+    source.crop((left, top, right, bottom)).save(output, "PNG")
+    db.add(AuditEvent(
+        user_id=user.id, event_type=AuditEventType.SENSITIVE_REVEAL,
+        target_type="visual_region", target_id=str(region.id),
+        metadata_json={
+            "action": "reveal", "subject_type": "visual_region",
+            "region_type": region.region_type,
+            "sensitivity_type": sensitivity.sensitivity_type,
+        },
+    ))
+    db.commit()
+    response.headers["Cache-Control"] = "no-store, private"
+    return SensitiveRevealResponse(
+        subject_type="visual_region", subject_id=str(region.id),
+        sensitivity_type=sensitivity.sensitivity_type,
+        content_base64=base64.b64encode(output.getvalue()).decode("ascii"),
+        media_type="image/png",
+    )

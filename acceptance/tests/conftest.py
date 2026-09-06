@@ -15,7 +15,6 @@ from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.models import Document, Page, PreprocessingResult, ProcessingJob, User
-from app.models.enums import ProcessingStatus
 
 API_URL = os.getenv("ACCEPTANCE_API_URL", "http://localhost:8000/api/v1")
 MAILPIT_URL = os.getenv("MAILPIT_API_URL", "http://mailpit:8025")
@@ -25,6 +24,7 @@ EVIDENCE_DIR = Path(os.getenv("ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER", "/evidence
 SENSITIVE_KEYS = {
     "access_token", "token", "password", "new_password", "totp_code", "secret",
     "provisioning_uri", "authorization", "jwt", "reset_link", "verification_link",
+    "revealed_value", "content_base64",
 }
 JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")
 TOKEN_QUERY_RE = re.compile(r"([?&]token=)[^&\s]+", re.I)
@@ -316,11 +316,7 @@ def wait_for_preprocessing(document_id: str, *, timeout: float = 60.0) -> dict[s
                         "needs_review": result.needs_review,
                         "noise_reduction_applied": result.noise_reduction_applied,
                     })
-            if (
-                pages
-                and len(results) == len(pages)
-                and doc.status != ProcessingStatus.PROCESSING
-            ):
+            if pages and len(results) == len(pages):
                 return {"document_status": doc.status.value, "pages": results}
         finally:
             db.close()

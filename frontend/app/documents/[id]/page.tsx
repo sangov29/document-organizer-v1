@@ -23,13 +23,20 @@ type Correction = {
 type ExtractedField = {
   id:string; field_name:string; value?:string|null; confidence?:number|null;
   trust_state:string; criticality:string; schema_version?:string|null;
-  provenance:Provenance; corrections:Correction[];
+  provenance:Provenance; corrections:Correction[]; sensitive:boolean;
+  sensitivity_type?:string|null; masked:boolean;
+};
+
+type SensitiveRegion = {
+  id:string; region_type:string; sensitivity_type:string;
+  bbox:{x:number;y:number;width:number;height:number}; concealed:boolean;
 };
 
 type Analysis = {
   document_id:string;
   classification:{family:string; confidence:number; provider:string; model_version:string; method:string; configured_threshold:number; provenance:Provenance};
   fields:ExtractedField[];
+  sensitive_regions:SensitiveRegion[];
 };
 
 export default function DocumentDetail() {
@@ -37,6 +44,8 @@ export default function DocumentDetail() {
   const [document, setDocument] = useState<Doc|null>(null);
   const [analysis, setAnalysis] = useState<Analysis|null>(null);
   const [drafts, setDrafts] = useState<Record<string,string>>({});
+  const [revealedFields, setRevealedFields] = useState<Record<string,string>>({});
+  const [revealedRegions, setRevealedRegions] = useState<Record<string,string>>({});
   const [message, setMessage] = useState('Loading document…');
 
   useEffect(() => {
@@ -80,6 +89,26 @@ export default function DocumentDetail() {
     setMessage(action === 'correct' ? 'Correction saved.' : 'Field confirmed.');
   }
 
+  async function revealField(field: ExtractedField) {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/fields/${field.id}/reveal`, {method:'POST', headers:{Authorization:`Bearer ${token}`}, cache:'no-store'});
+    if (!response.ok) { setMessage('Sensitive value could not be revealed.'); return; }
+    const result = await response.json();
+    setRevealedFields({...revealedFields, [field.id]:result.revealed_value});
+    setMessage('Sensitive value temporarily revealed.');
+  }
+
+  async function revealRegion(region: SensitiveRegion) {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/regions/${region.id}/reveal`, {method:'POST', headers:{Authorization:`Bearer ${token}`}, cache:'no-store'});
+    if (!response.ok) { setMessage('Sensitive region could not be revealed.'); return; }
+    const result = await response.json();
+    setRevealedRegions({...revealedRegions, [region.id]:`data:${result.media_type};base64,${result.content_base64}`});
+    setMessage('Sensitive region temporarily revealed.');
+  }
+
   return <><p><Link href="/documents">← Back to documents</Link></p><h1>Document details</h1>
     <p role="status">{message}</p>
     {document && <div className="card" data-testid="document-detail">
@@ -97,14 +126,22 @@ export default function DocumentDetail() {
       <h3>Extracted fields</h3>
       {analysis.fields.map(field => <article className="card" data-testid={`field-${field.field_name}`} key={field.id}>
         <h4>{field.field_name.replaceAll('_', ' ')}</h4>
-        <p><strong>{field.value ?? 'Not found'}</strong></p>
+        <p><strong>{revealedFields[field.id] ?? field.value ?? 'Not found'}</strong>{field.masked && !revealedFields[field.id] && ' (masked)'}</p>
         <p>{field.trust_state} · {field.criticality}{field.confidence == null ? '' : ` · ${Math.round(field.confidence * 100)}% confidence`}</p>
-        <label>Correct {field.field_name}<input aria-label={`Correct ${field.field_name}`} value={drafts[field.id] ?? field.value ?? ''} onChange={event => setDrafts({...drafts, [field.id]:event.target.value})}/></label>
+        {field.sensitive && <p><button type="button" onClick={() => revealField(field)}>Reveal {field.field_name.replaceAll('_', ' ')}</button></p>}
+        <label>Correct {field.field_name}<input aria-label={`Correct ${field.field_name}`} placeholder={field.sensitive ? 'Enter replacement value' : ''} value={drafts[field.id] ?? (field.sensitive ? '' : field.value ?? '')} onChange={event => setDrafts({...drafts, [field.id]:event.target.value})}/></label>
         <button type="button" onClick={() => reviewField(field, 'correct')}>Save correction</button>{' '}
         <button type="button" onClick={() => reviewField(field, 'confirm')}>Confirm</button>
         <details><summary>Provenance</summary><p>{field.provenance.provider} · {field.provenance.model_version} · {field.provenance.method}</p><p className="hash">Page: {field.provenance.source_page_id ?? 'document level'} · Region: {field.provenance.visual_region_id ?? 'not recorded'}</p></details>
         {field.corrections.length > 0 && <div><h5>Correction history</h5><ul>{field.corrections.map(correction => <li key={correction.id}>{correction.prior_value ?? 'Not found'} → {correction.corrected_value} · {new Date(correction.created_at).toLocaleString()}</li>)}</ul></div>}
       </article>)}
+      {analysis.sensitive_regions.length > 0 && <div data-testid="sensitive-regions"><h3>Sensitive regions</h3>{analysis.sensitive_regions.map(region => <article className="card" data-testid={`region-${region.region_type}`} key={region.id}>
+        <h4>{region.region_type.replaceAll('_', ' ')}</h4>
+        {revealedRegions[region.id]
+          ? <img src={revealedRegions[region.id]} alt={`Temporarily revealed ${region.region_type}`} />
+          : <p className="concealed">Sensitive region concealed</p>}
+        <button type="button" onClick={() => revealRegion(region)}>Reveal {region.region_type.replaceAll('_', ' ')}</button>
+      </article>)}</div>}
     </section>}
   </>;
 }

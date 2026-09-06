@@ -13,3 +13,4 @@ dl { display: grid; grid-template-columns: 120px 1fr; gap: 10px; }
 dt { font-weight: 700; }
 dd { margin: 0; }
 .hash { overflow-wrap: anywhere; font-family: monospace; }
+.concealed { display: inline-block; min-width: 260px; padding: 20px; background: #20242a; color: white; border-radius: 6px; text-align: center; }

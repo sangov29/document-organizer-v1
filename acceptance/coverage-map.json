@@ -1,6 +1,6 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance through PR-TC-004, including 19 frozen catalogue IDs",
+  "scope": "Runtime acceptance through SEC-TC-001, including 20 frozen catalogue IDs",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -102,6 +102,12 @@
       "steps": {"1": "capture original value and provenance", "2": "correct 15,000 to 75,000 through owner-scoped public API", "3": "corrected value becomes active", "4": "original model/page/region/confidence provenance remains unchanged", "5": "actor/time/prior value/prior provenance are retained", "6": "refresh/reopen preserves active correction and history; confirmation is also logged"},
       "evidence": "review/PR-TC-004-result.json and recorded public API responses",
       "claim_limit": "Reprocessing/no-silent-overwrite remains PR-TC-006"
+    },
+    "SEC-TC-001": {
+      "pytest": ["test_SEC_TC_001_combined_financial_sensitive_data_protection"],
+      "steps": {"1": "synthetic bank slip uploaded through public API", "2": "banking classification completes", "3": "account number is tagged and masked by default", "4": "normal analysis contains region metadata but no sensitive pixels/value", "5": "signature region is independently tagged and concealed", "6": "browser test proves passive interaction does not reveal", "7": "explicit owner account reveal leaves signature concealed", "8": "account reveal appends value-free audit event", "9": "refresh restores account masking", "10": "explicit owner signature reveal leaves account masked", "11": "refresh/reopen returns both subjects concealed", "12": "audit mutation routes are unavailable and a foreign account receives non-enumerating 404 responses"},
+      "evidence": "security/SEC-TC-001-result.json, redacted public API responses, UI screenshot and functional JUnit",
+      "claim_limit": "NFR-SEC-015 retention and NFR-PRIV-004/005 lifecycle periods remain blocked/TBD; V1 authorization means authenticated document owner"
     }
   }
 }

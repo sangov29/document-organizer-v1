@@ -9,13 +9,19 @@ from app.core.security import create_email_verification_token, create_password_r
 from app.db.session import SessionLocal
 from app.models import (
     ClassificationResult, Document, ExtractedField, OCRArtifact, Page,
-    PreprocessingResult, ProcessingJob, Provenance, User,
+    PreprocessingResult, ProcessingJob, Provenance, SensitivityTag, User,
+    VisualRegion,
 )
-from app.models.enums import DocumentFamily, ProcessingStatus, TrustState
+from app.models.enums import (
+    DocumentFamily, ProcessingStatus, SensitivitySubjectType, TrustState,
+)
 from app.services.email import email_service
 from app.services.storage import storage
 from app.services.preprocessing import preprocess_page
 from app.services.ocr import recognize_page
+from app.services.sensitivity import (
+    find_signature_bbox, find_value_bbox, sensitivity_type_for_field,
+)
 from app.services.analysis import (
     MODEL_VERSION as ANALYSIS_MODEL_VERSION,
     PROVIDER as ANALYSIS_PROVIDER,
@@ -237,13 +243,33 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
             )
             db.add(field)
             db.flush()
+            sensitivity_type = sensitivity_type_for_field(field_decision.name)
+            visual_region = None
+            if sensitivity_type and field_decision.value:
+                bbox = find_value_bbox(rows[0][1].blocks, field_decision.value)
+                if bbox:
+                    visual_region = VisualRegion(
+                        page_id=first_page.id, region_type="sensitive_field",
+                        bbox=bbox, confidence=field_decision.confidence,
+                        provider=ANALYSIS_PROVIDER,
+                        model_version=field_decision.schema_version or ANALYSIS_MODEL_VERSION,
+                    )
+                    db.add(visual_region)
+                    db.flush()
             db.add(Provenance(
                 extracted_field_id=field.id,
                 source_document_id=document.id, source_page_id=first_page.id,
+                visual_region_id=visual_region.id if visual_region else None,
                 provider=ANALYSIS_PROVIDER,
                 model_version=field_decision.schema_version or ANALYSIS_MODEL_VERSION,
                 method=extraction_method, confidence=field_decision.confidence,
             ))
+            if sensitivity_type:
+                db.add(SensitivityTag(
+                    subject_type=SensitivitySubjectType.EXTRACTED_FIELD,
+                    extracted_field_id=field.id,
+                    sensitivity_type=sensitivity_type,
+                ))
             field_review = field_review or (
                 (
                     field_decision.criticality == "critical"
@@ -256,6 +282,21 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
                     and field_decision.confidence < settings.field_review_confidence
                 )
             )
+    if decision.family == DocumentFamily.BANKING:
+        signature_bbox = find_signature_bbox(rows[0][1].blocks)
+        if signature_bbox:
+            signature_region = VisualRegion(
+                page_id=first_page.id, region_type="signature",
+                bbox=signature_bbox, confidence=rows[0][1].confidence,
+                provider=rows[0][1].provider, model_version=rows[0][1].model_version,
+            )
+            db.add(signature_region)
+            db.flush()
+            db.add(SensitivityTag(
+                subject_type=SensitivitySubjectType.VISUAL_REGION,
+                visual_region_id=signature_region.id,
+                sensitivity_type="signature",
+            ))
     classification_review = (
         decision.family != DocumentFamily.UNKNOWN
         and decision.confidence < settings.classification_known_threshold

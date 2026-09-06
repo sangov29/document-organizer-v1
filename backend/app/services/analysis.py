@@ -48,6 +48,12 @@ PREDEFINED_SCHEMAS: dict[DocumentFamily, dict[str, tuple[str, tuple[str, ...]]]]
         "due_date": ("critical", ("Due Date",)),
         "provider": ("standard", ("Provider", "Service Provider")),
     },
+    DocumentFamily.BANKING: {
+        "account_holder": ("critical", ("Account Holder", "Customer Name")),
+        "account_number": ("critical", ("Account Number",)),
+        "bank_name": ("standard", ("Bank Name", "Bank")),
+        "statement_date": ("standard", ("Statement Date",)),
+    },
 }
 
 

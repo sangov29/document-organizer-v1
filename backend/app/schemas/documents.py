@@ -86,6 +86,26 @@ class ExtractedFieldResponse(BaseModel):
     schema_version: str | None
     provenance: ResultProvenanceResponse
     corrections: list[dict] = Field(default_factory=list)
+    sensitive: bool = False
+    sensitivity_type: str | None = None
+    masked: bool = False
+
+
+class SensitiveRegionResponse(BaseModel):
+    id: str
+    region_type: str
+    sensitivity_type: str
+    bbox: dict[str, int]
+    concealed: bool = True
+
+
+class SensitiveRevealResponse(BaseModel):
+    subject_type: Literal["extracted_field", "visual_region"]
+    subject_id: str
+    sensitivity_type: str
+    revealed_value: str | None = None
+    content_base64: str | None = None
+    media_type: str | None = None
 
 
 class FieldReviewRequest(BaseModel):
@@ -97,3 +117,4 @@ class DocumentAnalysisResponse(BaseModel):
     document_id: str
     classification: ClassificationResponse
     fields: list[ExtractedFieldResponse]
+    sensitive_regions: list[SensitiveRegionResponse] = Field(default_factory=list)
