@@ -166,3 +166,223 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "EX-TC-008-results.json").write_text(json.dumps(results, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-001", steps="1-3")
+def test_EX_TC_001_predefined_family_fields(api, evidence, auth_token, run_id):
+    fixtures = {
+        "identity": (
+            [
+                "PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH: 12 May 1990",
+                "Full Name: Alex Example", "Document Number: X1234567",
+                "Issue Date: 01 January 2020", "Issuing Authority: Test Authority",
+                "Nationality: Testland",
+            ],
+            {"full_name", "document_number", "date_of_birth", "issue_date",
+             "expiry_date", "issuing_authority", "nationality"},
+        ),
+        "utility": (
+            [
+                "UTILITY BILL", "ELECTRICITY SERVICE", "Account Holder: Alex Example",
+                "Service Address: 5 Sample Street", "Account Number: AC998877",
+                "Amount Due: 200.00", "Due Date: 15 October 2026",
+                "Provider: Sample Power",
+            ],
+            {"account_holder", "service_address", "consumer_account_number",
+             "billing_period", "amount_due", "due_date", "provider"},
+        ),
+        "banking": (
+            [
+                "BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN",
+                "Bank Name: Example Bank", "Account Holder: Alex Example",
+                "Account Number: 112233445566", "Statement Date: 01 September 2026",
+            ],
+            {"account_holder", "account_number", "bank_name", "statement_date"},
+        ),
+    }
+    results = {}
+    for family, (lines, expected_names) in fixtures.items():
+        result = _upload_and_wait(api, auth_token, run_id, f"ex001-{family}", lines)
+        evidence.document(result["document_id"])
+        assert result["classification"]["family"] == family
+        fields = {f["field_name"]: f for f in result["fields"]}
+        assert set(fields) == expected_names, f"{family} schema fields mismatch"
+        for field in fields.values():
+            assert field["schema_version"] == "schema-v0.1"
+        results[family] = result
+    evidence.note("predefined-family-fields", results)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-001-results.json").write_text(json.dumps(results, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-002", steps="1-2")
+def test_EX_TC_002_field_confidence_bounds(api, evidence, auth_token, run_id):
+    result = _upload_and_wait(api, auth_token, run_id, "ex002-identity", [
+        "PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH: 03 March 1985",
+        "Full Name: Sam Example", "Document Number: Y7654321",
+        "Issue Date: 01 January 2019",
+        # Expiry Date and Issuing Authority and Nationality intentionally omitted.
+    ])
+    evidence.document(result["document_id"])
+    found_any_not_found = False
+    for field in result["fields"]:
+        if field["trust_state"] == "not_found":
+            found_any_not_found = True
+            assert field["value"] is None
+            assert field["confidence"] is None
+        else:
+            assert field["value"] is not None
+            assert field["confidence"] is not None
+            assert 0 <= field["confidence"] <= 1
+    assert found_any_not_found, "fixture must exercise at least one not_found field"
+    evidence.note("field-confidence-bounds", result)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-002-result.json").write_text(json.dumps(result, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-003", steps="1-2")
+def test_EX_TC_003_explicit_not_found_state(api, evidence, auth_token, run_id):
+    result = _upload_and_wait(api, auth_token, run_id, "ex003-utility", [
+        "UTILITY BILL", "ELECTRICITY SERVICE", "Account Holder: Riley Example",
+        "Service Address: 9 Sample Lane", "Account Number: AC554433",
+        "Amount Due: 88.20", "Due Date: 20 October 2026",
+        # Billing Period and Provider intentionally omitted.
+    ])
+    evidence.document(result["document_id"])
+    fields = {f["field_name"]: f for f in result["fields"]}
+    for name in ("billing_period", "provider"):
+        assert fields[name]["trust_state"] == "not_found"
+        assert fields[name]["value"] is None
+        assert fields[name]["confidence"] is None
+        assert fields[name]["schema_version"] == "schema-v0.1"
+    evidence.note("explicit-not-found", result)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-003-result.json").write_text(json.dumps(result, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-004", steps="1-2")
+def test_EX_TC_004_separate_inferred_information(api, evidence, auth_token, run_id):
+    result = _upload_and_wait(api, auth_token, run_id, "ex004-identity", [
+        "PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH: 14 July 1992",
+        "Full Name: Jordan Example", "Document Number: Z9988776",
+        "Issue Date: 01 January 2022", "Expiry Date: 01 January 2032",
+        "Inferred Issuing Authority: External Registry Cross-Reference",
+        "Nationality: Testland",
+    ])
+    evidence.document(result["document_id"])
+    fields = {f["field_name"]: f for f in result["fields"]}
+    inferred = fields["issuing_authority"]
+    assert inferred["trust_state"] == "inferred"
+    assert inferred["value"] == "External Registry Cross-Reference"
+    assert inferred["confidence"] is not None and 0 <= inferred["confidence"] <= 1
+    # Distinguishable from a directly OCR-extracted value on the same document.
+    assert fields["full_name"]["trust_state"] == "extracted"
+    assert inferred["trust_state"] != fields["full_name"]["trust_state"]
+    evidence.note("separate-inferred-information", result)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-004-result.json").write_text(json.dumps(result, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-005", steps="1-3")
+def test_EX_TC_005_confirm_inferred_field(api, evidence, auth_token, run_id):
+    from app.db.session import SessionLocal
+    from app.models import AuditEvent
+    from app.models.enums import AuditEventType
+    from sqlalchemy import select
+
+    result = _upload_and_wait(api, auth_token, run_id, "ex005-identity", [
+        "PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH: 21 April 1991",
+        "Full Name: Casey Example", "Document Number: Q1122334",
+        "Issue Date: 01 January 2021", "Expiry Date: 01 January 2031",
+        "Inferred Issuing Authority: External Registry Cross-Reference",
+        "Nationality: Testland",
+    ])
+    document_id = result["document_id"]
+    evidence.document(document_id)
+    fields = {f["field_name"]: f for f in result["fields"]}
+    inferred = fields["issuing_authority"]
+    assert inferred["trust_state"] == "inferred"
+
+    confirmed_response = api.request(
+        "POST", f"/documents/{document_id}/fields/{inferred['id']}/review",
+        label="EX-TC-005 confirm inferred field", token=auth_token,
+        json={"action": "confirm"},
+    )
+    assert confirmed_response.status_code == 200
+    confirmed = {f["field_name"]: f for f in confirmed_response.json()["fields"]}["issuing_authority"]
+    assert confirmed["trust_state"] == "confirmed"
+    assert confirmed["value"] == inferred["value"]
+
+    db = SessionLocal()
+    try:
+        event = db.scalar(
+            select(AuditEvent).where(
+                AuditEvent.event_type == AuditEventType.CONFIRMATION,
+                AuditEvent.target_id == inferred["id"],
+            )
+        )
+        assert event is not None
+    finally:
+        db.close()
+    evidence.note("confirm-inferred-field", {"before": inferred, "after": confirmed})
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-005-result.json").write_text(json.dumps({"before": inferred, "after": confirmed}, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-006", steps="1-2")
+def test_EX_TC_006_bounded_schema_extraction(api, evidence, auth_token, run_id):
+    result = _upload_and_wait(api, auth_token, run_id, "ex006-identity", [
+        "PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH: 09 June 1993",
+        "Full Name: Morgan Example", "Document Number: R5566778",
+        "Issue Date: 01 January 2023", "Expiry Date: 01 January 2033",
+        "Issuing Authority: Test Authority", "Nationality: Testland",
+        "Blood Type: O Positive",  # plausible but undefined label for this family
+        "Favourite Colour: Blue",  # another undefined label
+    ])
+    evidence.document(result["document_id"])
+    expected_names = {
+        "full_name", "document_number", "date_of_birth", "issue_date",
+        "expiry_date", "issuing_authority", "nationality",
+    }
+    fields = {f["field_name"]: f for f in result["fields"]}
+    assert set(fields) == expected_names
+    assert "blood_type" not in fields
+    assert "favourite_colour" not in fields
+    for field in fields.values():
+        assert field["schema_version"] == "schema-v0.1"
+    evidence.note("bounded-schema-extraction", result)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-006-result.json").write_text(json.dumps(result, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-007", steps="1-3")
+def test_EX_TC_007_preserve_unknown_ocr(api, evidence, auth_token, run_id):
+    result = _upload_and_wait(api, auth_token, run_id, "ex007-unknown", [
+        "NEIGHBOURHOOD GARDENING CLUB NOTICE",
+        "Location: Community Hall Annex",
+        "Reference: OOD-2026-EX007",
+    ])
+    document_id = result["document_id"]
+    evidence.document(document_id)
+    assert result["classification"]["family"] == "unknown"
+    ocr = api.request(
+        "GET", f"/documents/{document_id}/ocr",
+        label="EX-TC-007 unknown OCR retained", token=auth_token,
+    )
+    assert ocr.status_code == 200
+    body = ocr.json()
+    assert body["document_id"] == document_id
+    page_text = body["pages"][0]["text"].upper()
+    assert "NEIGHBOURHOOD GARDENING CLUB NOTICE" in page_text
+    assert "OOD-2026-EX007" in page_text
+    assert body["pages"][0]["page_id"]
+    evidence.note("preserve-unknown-ocr", body)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-007-result.json").write_text(json.dumps(body, indent=2))

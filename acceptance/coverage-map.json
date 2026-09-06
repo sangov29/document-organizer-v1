@@ -1,6 +1,6 @@
 {
-  "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance through CL-TC-005 and VA-TC-004, including 37 frozen catalogue IDs",
+  "baseline": "Test Catalogue v0.4 UM/DI/PP/CR/CL/EX/PR/VA/SR/OR/IN/SEC baseline",
+  "scope": "Runtime acceptance through CL-TC-005, VA-TC-004, EX-TC-001-009, PR-TC-001-006 and CR-TC-002, including 50 frozen catalogue IDs",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -9,182 +9,651 @@
   },
   "tests": {
     "UM-TC-001": {
-      "pytest": ["test_UM_TC_001_registration_verification"],
+      "pytest": [
+        "test_UM_TC_001_registration_verification"
+      ],
       "timing_probe": "registration_existing_vs_new",
-      "steps": {"1": "API route availability proxy; no browser assertion", "2": "covered", "3": "covered", "4": "covered", "5": "Mailpit sink", "6": "covered", "7": "covered", "8": "functional response comparison + separate timing evidence", "9": "DB inspection explicitly required for credential-persistence evidence"}
+      "steps": {
+        "1": "API route availability proxy; no browser assertion",
+        "2": "covered",
+        "3": "covered",
+        "4": "covered",
+        "5": "Mailpit sink",
+        "6": "covered",
+        "7": "covered",
+        "8": "functional response comparison + separate timing evidence",
+        "9": "DB inspection explicitly required for credential-persistence evidence"
+      }
     },
     "UM-TC-002": {
-      "pytest": ["test_UM_TC_002_login_and_list_isolation", "test_UM_TC_002_direct_resource_identifier_isolation"],
+      "pytest": [
+        "test_UM_TC_002_login_and_list_isolation",
+        "test_UM_TC_002_direct_resource_identifier_isolation"
+      ],
       "timing_probe": "login_existing_wrong_password_vs_nonexistent",
-      "steps": {"1": "covered", "2": "covered", "3": "functional response comparison + separate timing evidence", "4": "covered using list endpoint", "5": "covered by ownership-scoped public resource-by-ID endpoint", "6": "covered; foreign and nonexistent IDs return the same response"}
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "functional response comparison + separate timing evidence",
+        "4": "covered using list endpoint",
+        "5": "covered by ownership-scoped public resource-by-ID endpoint",
+        "6": "covered; foreign and nonexistent IDs return the same response"
+      }
     },
     "UM-TC-003": {
-      "pytest": ["test_UM_TC_003_password_reset_lifecycle", "test_UM_TC_003_password_reset_expiry"],
+      "pytest": [
+        "test_UM_TC_003_password_reset_lifecycle",
+        "test_UM_TC_003_password_reset_expiry"
+      ],
       "timing_probe": "password_reset_existing_vs_nonexistent",
-      "steps": {"1": "covered", "2": "functional response comparison + separate timing evidence", "3": "Mailpit sink token lifecycle", "4": "covered", "5": "covered", "6": "covered", "7": "covered", "8": "covered using accelerated one-minute acceptance expiry"},
+      "steps": {
+        "1": "covered",
+        "2": "functional response comparison + separate timing evidence",
+        "3": "Mailpit sink token lifecycle",
+        "4": "covered",
+        "5": "covered",
+        "6": "covered",
+        "7": "covered",
+        "8": "covered using accelerated one-minute acceptance expiry"
+      },
       "additional": "Previously issued JWT replay is rejected after reset"
     },
     "UM-TC-004": {
-      "pytest": ["test_UM_TC_004_logout_and_idle_expiry"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered by replaying old JWT", "4": "covered", "5": "covered using one-minute acceptance idle timeout", "6": "covered"}
+      "pytest": [
+        "test_UM_TC_004_logout_and_idle_expiry"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered by replaying old JWT",
+        "4": "covered",
+        "5": "covered using one-minute acceptance idle timeout",
+        "6": "covered"
+      }
     },
     "UM-TC-005": {
-      "pytest": ["test_UM_TC_005_totp_optional_then_mandatory"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "covered", "6": "covered", "7": "covered"},
+      "pytest": [
+        "test_UM_TC_005_totp_optional_then_mandatory"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered",
+        "4": "covered",
+        "5": "covered",
+        "6": "covered",
+        "7": "covered"
+      },
       "additional": "Password-only login is explicitly rechecked after setup but before confirmation"
     },
     "DI-TC-001": {
-      "pytest": ["test_DI_TC_001_supported_uploads_and_safe_failures"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "malformed PDF worker failure covered; MIME/content sniffing remains implementation-limited", "6": "API preserves filename as inert data; browser execution evidence is outside API-only harness", "7": "202 + queued acknowledgement proxy; no UI screenshot"}
+      "pytest": [
+        "test_DI_TC_001_supported_uploads_and_safe_failures"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered",
+        "4": "covered",
+        "5": "malformed PDF worker failure covered; MIME/content sniffing remains implementation-limited",
+        "6": "API preserves filename as inert data; browser execution evidence is outside API-only harness",
+        "7": "202 + queued acknowledgement proxy; no UI screenshot"
+      }
     },
     "DI-TC-002": {
-      "pytest": ["test_DI_TC_002_exact_duplicate_core", "test_DI_TC_002_keep_override"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered through public document count", "5": "covered by explicit duplicate keep action and canonical linkage", "6": "covered"}
+      "pytest": [
+        "test_DI_TC_002_exact_duplicate_core",
+        "test_DI_TC_002_keep_override"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered",
+        "4": "covered through public document count",
+        "5": "covered by explicit duplicate keep action and canonical linkage",
+        "6": "covered"
+      }
     },
     "DI-TC-003": {
-      "pytest": ["test_DI_TC_003_capacity_limit"],
-      "steps": {"1": "covered", "2": "covered at exact 1 MiB acceptance boundary", "3": "covered", "4": "covered", "5": "API health covered; docker stats captured by orchestration as explicit resource evidence", "6": "acceptance override changes limit from source default without source modification"}
+      "pytest": [
+        "test_DI_TC_003_capacity_limit"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered at exact 1 MiB acceptance boundary",
+        "3": "covered",
+        "4": "covered",
+        "5": "API health covered; docker stats captured by orchestration as explicit resource evidence",
+        "6": "acceptance override changes limit from source default without source modification"
+      }
     },
     "DI-TC-004": {
-      "pytest": ["test_DI_TC_004_pdf_page_splitting"],
-      "steps": {"1": "covered", "2": "covered", "3": "DB evidence explicitly permitted by catalogue", "4": "DB linkage evidence explicitly permitted by catalogue", "5": "page rows/derived keys prove independently addressable page artifacts; downstream PP not yet implemented"}
+      "pytest": [
+        "test_DI_TC_004_pdf_page_splitting"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "DB evidence explicitly permitted by catalogue",
+        "4": "DB linkage evidence explicitly permitted by catalogue",
+        "5": "page rows/derived keys prove independently addressable page artifacts; downstream PP not yet implemented"
+      }
     },
     "DI-TC-005": {
-      "pytest": ["test_DI_TC_005_bulk_partial_failure_isolation"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "dismiss/retry UI workflow not implemented; isolation verified by no sibling duplication/restart", "6": "covered"}
+      "pytest": [
+        "test_DI_TC_005_bulk_partial_failure_isolation"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered",
+        "4": "covered",
+        "5": "dismiss/retry UI workflow not implemented; isolation verified by no sibling duplication/restart",
+        "6": "covered"
+      }
     },
     "PP-TC-001": {
-      "pytest": ["test_PP_TC_001_orientation_correction"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered", "4": "covered", "5": "normalized artifacts captured for inspection", "6": "uncertain orientation routed to needs_review"},
+      "pytest": [
+        "test_PP_TC_001_orientation_correction"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered",
+        "4": "covered",
+        "5": "normalized artifacts captured for inspection",
+        "6": "uncertain orientation routed to needs_review"
+      },
       "evidence": "before/after PNG artifacts and orientation metadata"
     },
     "PP-TC-002": {
-      "pytest": ["test_PP_TC_002_low_quality_detection_and_traceability"],
-      "steps": {"1": "quality metric covered in service contract", "2": "blur metric covered in service contract", "3": "resolution metric covered in service contract", "4": "covered end-to-end", "5": "covered with needs_review document routing", "6": "covered by page-linked preprocessing_results row"}
+      "pytest": [
+        "test_PP_TC_002_low_quality_detection_and_traceability"
+      ],
+      "steps": {
+        "1": "quality metric covered in service contract",
+        "2": "blur metric covered in service contract",
+        "3": "resolution metric covered in service contract",
+        "4": "covered end-to-end",
+        "5": "covered with needs_review document routing",
+        "6": "covered by page-linked preprocessing_results row"
+      }
     },
     "PP-TC-003": {
-      "pytest": ["test_PP_TC_003_deskew_supported_and_extreme_safe"],
-      "steps": {"1": "covered", "2": "covered", "3": "covered by configurable supported tolerance", "4": "covered with needs_review", "5": "before/after artifact and residual angle captured"},
+      "pytest": [
+        "test_PP_TC_003_deskew_supported_and_extreme_safe"
+      ],
+      "steps": {
+        "1": "covered",
+        "2": "covered",
+        "3": "covered by configurable supported tolerance",
+        "4": "covered with needs_review",
+        "5": "before/after artifact and residual angle captured"
+      },
       "open_parameter": "PP_DESKEW_MAX_DEGREES defaults to 15 and remains configurable pending benchmark"
     },
     "PP-TC-004": {
-      "pytest": ["test_PP_TC_004_noise_reduction_defaults_disabled"],
+      "pytest": [
+        "test_PP_TC_004_noise_reduction_defaults_disabled"
+      ],
       "status": "safe disabled decision",
       "evidence": "decision record; paired OCR comparison deferred until OCR stage exists"
     },
     "CR-TC-001": {
-      "pytest": ["test_CR_TC_001_printed_text_ocr_page_lineage"],
-      "steps": {"1": "deterministic printed-text PNG uploaded through public API", "2": "normalized page is the OCR input", "3": "OCR completes asynchronously", "4": "persisted text is returned through owner-scoped public API", "5": "page ID, page number, provider, model, method, confidence and word bounding boxes covered", "6": "machine-readable OCR result saved as evidence"},
+      "pytest": [
+        "test_CR_TC_001_printed_text_ocr_page_lineage"
+      ],
+      "steps": {
+        "1": "deterministic printed-text PNG uploaded through public API",
+        "2": "normalized page is the OCR input",
+        "3": "OCR completes asynchronously",
+        "4": "persisted text is returned through owner-scoped public API",
+        "5": "page ID, page number, provider, model, method, confidence and word bounding boxes covered",
+        "6": "machine-readable OCR result saved as evidence"
+      },
       "evidence": "ocr/CR-TC-001-result.json plus recorded public API responses",
       "claim_limit": "Functional recognition of deterministic printed text only; no general OCR-accuracy claim"
     },
     "CL-TC-001": {
-      "pytest": ["test_CL_TC_001_all_families_and_unknown"],
-      "steps": {"1": "deterministic fixtures cover seven known families and OOD Unknown", "2": "each source is uploaded through the public API", "3": "classification runs after persisted OCR", "4": "exactly one active outcome is returned per document", "5": "confidence, configured threshold, provider, model, method and timestamp are returned", "6": "document/page provenance is returned and machine-readable evidence is saved"},
+      "pytest": [
+        "test_CL_TC_001_all_families_and_unknown"
+      ],
+      "steps": {
+        "1": "deterministic fixtures cover seven known families and OOD Unknown",
+        "2": "each source is uploaded through the public API",
+        "3": "classification runs after persisted OCR",
+        "4": "exactly one active outcome is returned per document",
+        "5": "confidence, configured threshold, provider, model, method and timestamp are returned",
+        "6": "document/page provenance is returned and machine-readable evidence is saved"
+      },
       "evidence": "analysis/CL-TC-001-results.json and recorded public API responses",
       "claim_limit": "Deterministic keyword-fixture behavior only; corpus precision/recall/F1 and false-known/false-unknown rates remain AI-EVAL work"
     },
     "CL-TC-002": {
-      "pytest": ["test_CL_TC_002_classification_confidence_envelope"],
-      "steps": {"1": "known-family fixture classified", "2": "confidence returned", "3": "confidence bounded zero to one", "4": "configured threshold and review decision returned"}
+      "pytest": [
+        "test_CL_TC_002_classification_confidence_envelope"
+      ],
+      "steps": {
+        "1": "known-family fixture classified",
+        "2": "confidence returned",
+        "3": "confidence bounded zero to one",
+        "4": "configured threshold and review decision returned"
+      }
     },
     "CL-TC-003": {
-      "pytest": ["test_CL_TC_003_ambiguous_classification_routes_to_review"],
-      "steps": {"1": "partial family evidence supplied", "2": "outcome retained as Unknown", "3": "ambiguous confidence distinguished from confident Unknown", "4": "persistent review_required returned", "5": "document routed to needs_review"}
+      "pytest": [
+        "test_CL_TC_003_ambiguous_classification_routes_to_review"
+      ],
+      "steps": {
+        "1": "partial family evidence supplied",
+        "2": "outcome retained as Unknown",
+        "3": "ambiguous confidence distinguished from confident Unknown",
+        "4": "persistent review_required returned",
+        "5": "document routed to needs_review"
+      }
     },
     "CL-TC-004": {
-      "pytest": ["test_CL_TC_004_same_family_documents_do_not_merge"],
-      "steps": {"1": "two same-family sources uploaded independently", "2": "both classified", "3": "distinct document IDs retained", "4": "both remain listed", "5": "no continuity evidence means no merge"},
+      "pytest": [
+        "test_CL_TC_004_same_family_documents_do_not_merge"
+      ],
+      "steps": {
+        "1": "two same-family sources uploaded independently",
+        "2": "both classified",
+        "3": "distinct document IDs retained",
+        "4": "both remain listed",
+        "5": "no continuity evidence means no merge"
+      },
       "claim_limit": "V1 document boundaries are explicit upload boundaries; automatic cross-upload page merging is not performed"
     },
     "CL-TC-005": {
-      "pytest": ["test_CL_TC_005_confident_unknown_is_valid_outcome"],
-      "steps": {"1": "zero-marker OOD fixture uploaded", "2": "Unknown assigned", "3": "confidence indicates no known-family evidence", "4": "valid Unknown is not forced into review"}
+      "pytest": [
+        "test_CL_TC_005_confident_unknown_is_valid_outcome"
+      ],
+      "steps": {
+        "1": "zero-marker OOD fixture uploaded",
+        "2": "Unknown assigned",
+        "3": "confidence indicates no known-family evidence",
+        "4": "valid Unknown is not forced into review"
+      }
     },
     "EX-TC-008": {
-      "pytest": ["test_EX_TC_008_versioned_predefined_field_criticality"],
-      "steps": {"1": "versioned starter schemas are selected for Identity and Utility", "2": "every expected field is attempted", "3": "each field is explicitly critical or standard", "4": "found values carry independent field confidence", "5": "an absent billing period is explicit not_found", "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"},
+      "pytest": [
+        "test_EX_TC_008_versioned_predefined_field_criticality"
+      ],
+      "steps": {
+        "1": "versioned starter schemas are selected for Identity and Utility",
+        "2": "every expected field is attempted",
+        "3": "each field is explicitly critical or standard",
+        "4": "found values carry independent field confidence",
+        "5": "an absent billing period is explicit not_found",
+        "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"
+      },
       "evidence": "analysis/EX-TC-008-results.json and recorded public API responses",
       "schema_decision": "schema-v0.1; Utility fields come from the agreed example, while the Identity starter list is a new versioned implementation decision",
       "claim_limit": "Deterministic rule fixtures only; correction/confirmation UI and corpus extraction accuracy remain later gates"
     },
     "EX-TC-009": {
-      "pytest": ["test_EX_TC_009_unknown_generic_extraction"],
-      "steps": {"1": "OOD fixture remains classified Unknown", "2": "generic name/date/amount/address are all attempted", "3": "found values carry confidence", "4": "missing address is explicit not_found", "5": "each field carries document/page/provider/model/method/timestamp provenance", "6": "Unknown OCR remains retrievable through the public API"},
+      "pytest": [
+        "test_EX_TC_009_unknown_generic_extraction"
+      ],
+      "steps": {
+        "1": "OOD fixture remains classified Unknown",
+        "2": "generic name/date/amount/address are all attempted",
+        "3": "found values carry confidence",
+        "4": "missing address is explicit not_found",
+        "5": "each field carries document/page/provider/model/method/timestamp provenance",
+        "6": "Unknown OCR remains retrievable through the public API"
+      },
       "evidence": "analysis/EX-TC-009-result.json and public OCR response",
       "claim_limit": "Rule-based deterministic generic extraction; no general extraction-accuracy claim"
     },
     "PR-TC-004": {
-      "pytest": ["test_PR_TC_004_correction_preserves_ai_history"],
-      "steps": {"1": "capture original value and provenance", "2": "correct 15,000 to 75,000 through owner-scoped public API", "3": "corrected value becomes active", "4": "original model/page/region/confidence provenance remains unchanged", "5": "actor/time/prior value/prior provenance are retained", "6": "refresh/reopen preserves active correction and history; confirmation is also logged"},
+      "pytest": [
+        "test_PR_TC_004_correction_preserves_ai_history"
+      ],
+      "steps": {
+        "1": "capture original value and provenance",
+        "2": "correct 15,000 to 75,000 through owner-scoped public API",
+        "3": "corrected value becomes active",
+        "4": "original model/page/region/confidence provenance remains unchanged",
+        "5": "actor/time/prior value/prior provenance are retained",
+        "6": "refresh/reopen preserves active correction and history; confirmation is also logged"
+      },
       "evidence": "review/PR-TC-004-result.json and recorded public API responses",
       "claim_limit": "Reprocessing/no-silent-overwrite remains PR-TC-006"
     },
     "SEC-TC-001": {
-      "pytest": ["test_SEC_TC_001_combined_financial_sensitive_data_protection"],
-      "steps": {"1": "synthetic bank slip uploaded through public API", "2": "banking classification completes", "3": "account number is tagged and masked by default", "4": "normal analysis contains region metadata but no sensitive pixels/value", "5": "signature region is independently tagged and concealed", "6": "browser test proves passive interaction does not reveal", "7": "explicit owner account reveal leaves signature concealed", "8": "account reveal appends value-free audit event", "9": "refresh restores account masking", "10": "explicit owner signature reveal leaves account masked", "11": "refresh/reopen returns both subjects concealed", "12": "audit mutation routes are unavailable and a foreign account receives non-enumerating 404 responses"},
+      "pytest": [
+        "test_SEC_TC_001_combined_financial_sensitive_data_protection"
+      ],
+      "steps": {
+        "1": "synthetic bank slip uploaded through public API",
+        "2": "banking classification completes",
+        "3": "account number is tagged and masked by default",
+        "4": "normal analysis contains region metadata but no sensitive pixels/value",
+        "5": "signature region is independently tagged and concealed",
+        "6": "browser test proves passive interaction does not reveal",
+        "7": "explicit owner account reveal leaves signature concealed",
+        "8": "account reveal appends value-free audit event",
+        "9": "refresh restores account masking",
+        "10": "explicit owner signature reveal leaves account masked",
+        "11": "refresh/reopen returns both subjects concealed",
+        "12": "audit mutation routes are unavailable and a foreign account receives non-enumerating 404 responses"
+      },
       "evidence": "security/SEC-TC-001-result.json, redacted public API responses, UI screenshot and functional JUnit",
       "claim_limit": "NFR-SEC-015 retention and NFR-PRIV-004/005 lifecycle periods remain blocked/TBD; V1 authorization means authenticated document owner"
     },
     "IN-TC-001": {
-      "pytest": ["test_IN_TC_001_stable_single_document_json_export"],
-      "steps": {"1": "owner-scoped public JSON export route", "2": "valid parseable JSON", "3": "stable versioned document and family metadata", "4": "field values, confidence and explicit not_found retained", "5": "document/page/region/provider/model/method provenance retained", "6": "corrected and confirmed trust states retained", "7": "repeat export is byte-stable", "8": "sensitive values remain masked under explicit V1 policy"},
+      "pytest": [
+        "test_IN_TC_001_stable_single_document_json_export"
+      ],
+      "steps": {
+        "1": "owner-scoped public JSON export route",
+        "2": "valid parseable JSON",
+        "3": "stable versioned document and family metadata",
+        "4": "field values, confidence and explicit not_found retained",
+        "5": "document/page/region/provider/model/method provenance retained",
+        "6": "corrected and confirmed trust states retained",
+        "7": "repeat export is byte-stable",
+        "8": "sensitive values remain masked under explicit V1 policy"
+      },
       "evidence": "interoperability/IN-TC-001-export.json and sensitive-export-policy.json",
       "sensitive_policy": "masked_no_bulk_reveal_v1; unmasked access remains owner-only and audited through single-subject reveal endpoints"
     },
     "IN-TC-002": {
-      "pytest": ["test_IN_TC_002_multi_document_csv_export"],
-      "steps": {"1": "multiple owner documents selected by ID", "2": "valid CSV with exact stable headers", "3": "cross-family rows use a documented normalized field layout", "4": "missing values use empty value/confidence plus explicit not_found trust_state", "5": "provenance and confidence retained per field", "6": "sensitive values remain masked", "7": "foreign or missing document IDs fail the entire owner-scoped request", "8": "machine-readable CSV saved as evidence"},
+      "pytest": [
+        "test_IN_TC_002_multi_document_csv_export"
+      ],
+      "steps": {
+        "1": "multiple owner documents selected by ID",
+        "2": "valid CSV with exact stable headers",
+        "3": "cross-family rows use a documented normalized field layout",
+        "4": "missing values use empty value/confidence plus explicit not_found trust_state",
+        "5": "provenance and confidence retained per field",
+        "6": "sensitive values remain masked",
+        "7": "foreign or missing document IDs fail the entire owner-scoped request",
+        "8": "machine-readable CSV saved as evidence"
+      },
       "evidence": "interoperability/IN-TC-002-export.csv",
       "claim_limit": "V1 supports up to 100 selected documents per request; no unmasked bulk export"
     },
     "OR-TC-001": {
-      "pytest": ["test_OR_TC_001_known_document_auto_organization"],
-      "steps": {"1": "known document uploaded", "2": "classification persisted", "3": "family-derived organization returned", "4": "document remains owner scoped"}
+      "pytest": [
+        "test_OR_TC_001_known_document_auto_organization"
+      ],
+      "steps": {
+        "1": "known document uploaded",
+        "2": "classification persisted",
+        "3": "family-derived organization returned",
+        "4": "document remains owner scoped"
+      }
     },
     "OR-TC-002": {
-      "pytest": ["test_OR_TC_002_unknown_document_visible_organization"],
-      "steps": {"1": "out-of-distribution document uploaded", "2": "Unknown retained", "3": "Unknown documents label returned", "4": "document remains visible"}
+      "pytest": [
+        "test_OR_TC_002_unknown_document_visible_organization"
+      ],
+      "steps": {
+        "1": "out-of-distribution document uploaded",
+        "2": "Unknown retained",
+        "3": "Unknown documents label returned",
+        "4": "document remains visible"
+      }
     },
     "OR-TC-003": {
-      "pytest": ["test_OR_TC_003_duplicate_choice_preserves_organization"],
-      "steps": {"1": "canonical document uploaded", "2": "duplicate detected", "3": "explicit keep action accepted", "4": "kept copy linked to canonical document"}
+      "pytest": [
+        "test_OR_TC_003_duplicate_choice_preserves_organization"
+      ],
+      "steps": {
+        "1": "canonical document uploaded",
+        "2": "duplicate detected",
+        "3": "explicit keep action accepted",
+        "4": "kept copy linked to canonical document"
+      }
     },
     "OR-TC-004": {
-      "pytest": ["test_OR_TC_004_organization_metadata_is_stable"],
-      "steps": {"1": "classification family stored", "2": "organization label derived from stored family", "3": "repeat query stable", "4": "metadata returned with document"},
+      "pytest": [
+        "test_OR_TC_004_organization_metadata_is_stable"
+      ],
+      "steps": {
+        "1": "classification family stored",
+        "2": "organization label derived from stored family",
+        "3": "repeat query stable",
+        "4": "metadata returned with document"
+      },
       "schema_decision": "V1 organization is the persisted active classification family; display labels are deterministic and Unknown remains explicit"
     },
     "SR-TC-001": {
-      "pytest": ["test_SR_TC_001_filter_by_family"],
-      "steps": {"1": "multiple families uploaded", "2": "family filter applied", "3": "only requested family returned", "4": "owner scope retained", "5": "pagination metadata returned"}
+      "pytest": [
+        "test_SR_TC_001_filter_by_family"
+      ],
+      "steps": {
+        "1": "multiple families uploaded",
+        "2": "family filter applied",
+        "3": "only requested family returned",
+        "4": "owner scope retained",
+        "5": "pagination metadata returned"
+      }
     },
     "SR-TC-002": {
-      "pytest": ["test_SR_TC_002_search_structured_non_sensitive_values"],
-      "steps": {"1": "structured values extracted", "2": "non-sensitive value query applied", "3": "matching owner document returned", "4": "nonmatching documents excluded", "5": "sensitive account value query returns no match", "6": "raw sensitive value never returned"},
+      "pytest": [
+        "test_SR_TC_002_search_structured_non_sensitive_values"
+      ],
+      "steps": {
+        "1": "structured values extracted",
+        "2": "non-sensitive value query applied",
+        "3": "matching owner document returned",
+        "4": "nonmatching documents excluded",
+        "5": "sensitive account value query returns no match",
+        "6": "raw sensitive value never returned"
+      },
       "security_decision": "Sensitive extracted fields are excluded from value-search matching"
     },
     "SR-TC-003": {
-      "pytest": ["test_SR_TC_003_date_sort_and_pagination"],
-      "steps": {"1": "dated documents uploaded", "2": "inclusive date range applied", "3": "newest/oldest order supported", "4": "stable ID tie-breaker used", "5": "page and page_size enforced", "6": "future range excludes existing documents"},
+      "pytest": [
+        "test_SR_TC_003_date_sort_and_pagination"
+      ],
+      "steps": {
+        "1": "dated documents uploaded",
+        "2": "inclusive date range applied",
+        "3": "newest/oldest order supported",
+        "4": "stable ID tie-breaker used",
+        "5": "page and page_size enforced",
+        "6": "future range excludes existing documents"
+      },
       "claim_limit": "Database-backed owner search; performance qualification remains a later NFR gate"
     },
     "VA-TC-001": {
-      "pytest": ["test_VA_TC_001_ambiguous_fields_are_explicitly_uncertain"],
-      "steps": {"1": "ambiguous classification produced", "2": "extracted value remains visible", "3": "field trust state is uncertain", "4": "review context remains explicit"}
+      "pytest": [
+        "test_VA_TC_001_ambiguous_fields_are_explicitly_uncertain"
+      ],
+      "steps": {
+        "1": "ambiguous classification produced",
+        "2": "extracted value remains visible",
+        "3": "field trust state is uncertain",
+        "4": "review context remains explicit"
+      }
     },
     "VA-TC-002": {
-      "pytest": ["test_VA_TC_002_field_approval_waits_for_classification_review"],
-      "steps": {"1": "ambiguous classification remains unresolved", "2": "field approval rejected with stable conflict code", "3": "owner confirms classification", "4": "review state persists", "5": "field approval then succeeds", "6": "classification confirmation audited"}
+      "pytest": [
+        "test_VA_TC_002_field_approval_waits_for_classification_review"
+      ],
+      "steps": {
+        "1": "ambiguous classification remains unresolved",
+        "2": "field approval rejected with stable conflict code",
+        "3": "owner confirms classification",
+        "4": "review state persists",
+        "5": "field approval then succeeds",
+        "6": "classification confirmation audited"
+      }
     },
     "VA-TC-003": {
-      "pytest": ["test_VA_TC_003_correction_persists_after_save"],
-      "steps": {"1": "field extracted", "2": "owner submits correction", "3": "active value changes", "4": "trust state becomes corrected", "5": "reopen retains correction"}
+      "pytest": [
+        "test_VA_TC_003_correction_persists_after_save"
+      ],
+      "steps": {
+        "1": "field extracted",
+        "2": "owner submits correction",
+        "3": "active value changes",
+        "4": "trust state becomes corrected",
+        "5": "reopen retains correction"
+      }
     },
     "VA-TC-004": {
-      "pytest": ["test_VA_TC_004_correction_audit_does_not_retrain_model"],
-      "steps": {"1": "model envelope captured", "2": "correction saved", "3": "correction audit event appended", "4": "classification provider/model/method unchanged", "5": "no online retraining claim or mutation"},
+      "pytest": [
+        "test_VA_TC_004_correction_audit_does_not_retrain_model"
+      ],
+      "steps": {
+        "1": "model envelope captured",
+        "2": "correction saved",
+        "3": "correction audit event appended",
+        "4": "classification provider/model/method unchanged",
+        "5": "no online retraining claim or mutation"
+      },
       "claim_limit": "Corrections are durable review facts; model retraining is deliberately offline and outside this endpoint"
+    },
+    "EX-TC-001": {
+      "pytest": [
+        "test_EX_TC_001_predefined_family_fields"
+      ],
+      "steps": {
+        "1": "Identity, Utility and Banking fixtures uploaded through the public API",
+        "2": "active versioned schema (schema-v0.1) selected per family",
+        "3": "every defined field for each family is attempted, found or explicit not_found"
+      },
+      "evidence": "analysis/EX-TC-001-results.json and recorded public API responses",
+      "claim_limit": "Deterministic rule fixtures only; no corpus-wide extraction-accuracy claim"
+    },
+    "EX-TC-002": {
+      "pytest": [
+        "test_EX_TC_002_field_confidence_bounds"
+      ],
+      "steps": {
+        "1": "every extracted value carries an independent confidence in [0,1]",
+        "2": "not_found fields carry no fabricated confidence (null)"
+      },
+      "evidence": "analysis/EX-TC-002-result.json"
+    },
+    "EX-TC-003": {
+      "pytest": [
+        "test_EX_TC_003_explicit_not_found_state"
+      ],
+      "steps": {
+        "1": "expected fields omitted from the source fixture",
+        "2": "each remains present with value=null, confidence=null, trust_state=not_found"
+      },
+      "evidence": "analysis/EX-TC-003-result.json"
+    },
+    "EX-TC-004": {
+      "pytest": [
+        "test_EX_TC_004_separate_inferred_information"
+      ],
+      "steps": {
+        "1": "an inferred-source value is distinguished from a directly OCR-extracted value",
+        "2": "trust_state=inferred is returned separately from trust_state=extracted"
+      },
+      "evidence": "analysis/EX-TC-004-result.json",
+      "claim_limit": "Deterministic 'Inferred <label>:' rule fixture; no general inference-accuracy claim"
+    },
+    "EX-TC-005": {
+      "pytest": [
+        "test_EX_TC_005_confirm_inferred_field"
+      ],
+      "steps": {
+        "1": "inferred field confirmed through the owner-scoped public review API",
+        "2": "active trust_state becomes confirmed",
+        "3": "a confirmation AuditEvent is persisted for the field"
+      },
+      "evidence": "analysis/EX-TC-005-result.json"
+    },
+    "EX-TC-006": {
+      "pytest": [
+        "test_EX_TC_006_bounded_schema_extraction"
+      ],
+      "steps": {
+        "1": "plausible but undefined labels are included alongside a known family's fixture",
+        "2": "no unversioned/unbounded fields are created; field set matches the frozen schema only"
+      },
+      "evidence": "analysis/EX-TC-006-result.json"
+    },
+    "EX-TC-007": {
+      "pytest": [
+        "test_EX_TC_007_preserve_unknown_ocr"
+      ],
+      "steps": {
+        "1": "out-of-distribution fixture is classified unknown",
+        "2": "page-linked OCR text remains retrievable through the owner-scoped public API",
+        "3": "OCR result is saved as evidence"
+      },
+      "evidence": "analysis/EX-TC-007-result.json",
+      "claim_limit": "Overlaps EX-TC-009 by design; both trace the same Unknown-OCR-retention behavior from independent fixtures"
+    },
+    "PR-TC-001": {
+      "pytest": [
+        "test_PR_TC_001_source_page"
+      ],
+      "steps": {
+        "1": "every extracted field's provenance identifies its source document",
+        "2": "every extracted field's provenance identifies its source page"
+      },
+      "evidence": "provenance/PR-TC-001-result.json"
+    },
+    "PR-TC-002": {
+      "pytest": [
+        "test_PR_TC_002_bounding_region"
+      ],
+      "steps": {
+        "1": "a locatable extracted value (account_number) is linked to a visual region",
+        "2": "the region carries page-relative bounding-box coordinates"
+      },
+      "evidence": "provenance/PR-TC-002-result.json"
+    },
+    "PR-TC-003": {
+      "pytest": [
+        "test_PR_TC_003_full_field_provenance"
+      ],
+      "steps": {
+        "1": "a single extracted field's provenance is inspected",
+        "2": "source document/page, provider, schema/model version, method, confidence and processing timestamp are all present together"
+      },
+      "evidence": "provenance/PR-TC-003-result.json"
+    },
+    "PR-TC-005": {
+      "pytest": [
+        "test_PR_TC_005_classification_provenance"
+      ],
+      "steps": {
+        "1": "the active classification's provenance is inspected",
+        "2": "source document/page, provider, model version, method, confidence and timestamp are all present together"
+      },
+      "evidence": "provenance/PR-TC-005-result.json"
+    },
+    "PR-TC-006": {
+      "pytest": [
+        "test_PR_TC_006_provenance_reconstruction_after_correction"
+      ],
+      "steps": {
+        "1": "classification and field lineage reconstructed from public analysis responses",
+        "2": "a field is corrected through the owner-scoped public review API",
+        "3": "original model provenance for the corrected field remains unchanged",
+        "4": "the correction links back to the original provenance by ID",
+        "5": "classification provenance is unaffected by the field-level correction",
+        "6": "reopening the analysis response reproduces the same reconstructed lineage"
+      },
+      "evidence": "provenance/PR-TC-006-result.json",
+      "claim_limit": "Extends PR-TC-004 (field-only) to include classification-lineage reconstruction"
+    },
+    "CR-TC-002": {
+      "pytest": [
+        "test_CR_TC_002_signature_region_detection"
+      ],
+      "steps": {
+        "1": "synthetic banking fixture with a labelled signature line uploaded",
+        "2": "preprocessing and OCR complete through the normal worker pipeline",
+        "3": "a signature visual region is stored with page ID, bounding box, provider, model version and confidence",
+        "4": "ordinary analysis returns only concealed region metadata (no content_base64)",
+        "5": "the owner can explicitly reveal the region; a foreign account gets the same non-enumerating 404 as a missing region"
+      },
+      "evidence": "content_recognition/CR-TC-002-result.json"
     }
   }
 }
