@@ -1,10 +1,13 @@
-# UM/DI/PP Runtime Acceptance Harness
+# V1 Runtime Acceptance Harness
 
-This harness executes the already-baselined `UM-TC-001..005`, `DI-TC-001..005`, and `PP-TC-001..004` behaviors against the running V1 stack. It does not invent a second acceptance-test namespace.
+This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #31 is the
+verified baseline: 53 functional tests, 3 timing probes and 1 browser journey
+all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules
 
-- UM/DI actions are driven through the public HTTP API. PP uses public ingestion plus direct inspection of page preprocessing outputs required by the catalogue.
+- Product behavior is driven through the public HTTP API. Direct inspection is limited to persistence or integrity evidence that is not exposed publicly and is explicitly required by the catalogue.
 - Direct PostgreSQL/config inspection is used only for evidence the frozen catalogue explicitly asks for: verification state/password-storage inspection, page count/order/source linkage, and configured upload limit. Processing-job/correlation inspection is additionally used only in failure diagnostics.
 - Redis is **not** mutated or used to make auth assertions; logout/reset/idle behavior is proved by replaying issued JWTs through the API.
 - Verification/reset tokens are retrieved from Mailpit's local mail-sink interface. There is no test-only backend token endpoint.
@@ -13,15 +16,19 @@ This harness executes the already-baselined `UM-TC-001..005`, `DI-TC-001..005`, 
 
 ## Catalogue mapping
 
-See `coverage-map.json`. All previously catalogued UM/DI API gaps now have
-public runtime coverage, including ownership-safe document retrieval and the
-explicit duplicate `keep` action.
+See `coverage-map.json` for the exact 50-ID mapping and step-level evidence
+boundaries. Ownership-safe retrieval, duplicate keep, preprocessing, OCR,
+classification, extraction, provenance, review, organization, search, export
+and sensitive-data controls all have executable runtime coverage.
 
 PP evidence includes page-linked quality metadata and before/after normalized
 images in the run's `preprocessing/` directory. Optional noise reduction ships
 disabled until the OCR stage can provide the required paired recognition comparison.
 
-UI-only screenshot requirements in `UM-TC-001` step 1 and `DI-TC-001` steps 6-7 are represented only by their API equivalents in this API-only harness and remain separate UI evidence if literal catalogue completion is required.
+The Playwright journey supplies separate browser evidence for registration,
+verification, login, upload, duplicate keep, inert filename rendering,
+document analysis/review and logout. Functional API, timing and UI results
+remain separate evidence streams.
 
 ## Timing evidence
 

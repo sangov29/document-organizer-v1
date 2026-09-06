@@ -1,70 +1,68 @@
-# Build Status — Sprint 1 / Slice 3
+# Build Status — Verified V1 Runtime Baseline
 
-## Implemented
+Baseline date: 6 September 2026  
+Verified commit: `d0773b7725817d36d5786d645c95ebef03b86352`  
+Evidence: GitHub Runtime Acceptance Run #31
 
-### UM
-- Registration/login anti-enumeration password-work hardening
-- One-time expiring email verification using signed token + `User.verification_version`
-- Verification delivery queued for both registration branches
-- Redis-backed per-login session IDs with server-enforced idle TTL
-- Logout revokes the active Redis session
-- Password-reset request with generic response and no in-request account-existence query
-- Password-reset delivery queued asynchronously for every request
-- One-time expiring password-reset token using `User.reset_version`
-- Successful password reset replaces the password hash, increments `reset_version`, records an auth audit event, and revokes all active server-side sessions
-- Optional TOTP setup/confirm/disable flow
-- TOTP secret encrypted at rest using a required Fernet key; plaintext secret is not persisted
-- Login requires a valid TOTP code only after TOTP has been explicitly confirmed/enabled
+## Current result
 
-### DI
-- PDF/JPG/PNG upload, limit checks, exact SHA-256 duplicate detection
-- Immutable source object keys and write-once storage behavior
-- Worker-side PDF page splitting with `pypdf`
-- Immutable per-page PDF objects and ordered `Page` persistence
-- Single-page `Page` persistence for JPG/PNG
-- Idempotent page splitting on retries
-- Bulk upload endpoint with one try/commit/queue boundary per file
-- Rejected/duplicate/failed batch items do not roll back successfully queued siblings
-- Queue-handoff failure is persisted as document/job `FAILED` rather than masquerading as queued
+- Functional runtime acceptance: **53 passed, 0 failed, 0 errors, 0 skipped**
+- Frozen catalogue coverage: **50 exact IDs** across UM, DI, PP, CR, CL, EX, PR, VA, SR, OR, IN and SEC
+- Anti-enumeration timing: **3 passed**
+- Browser journey: **1 passed**
+- `functional_exit=0`, `timing_exit=0`, `ui_exit=0`
+- Known catalogue gaps reported by the harness: **none**
 
-### Data / migrations / tests
-- 12 baseline entities retained; no new domain entity introduced
-- User auth state extended with `reset_version` and encrypted TOTP-secret ciphertext
-- Alembic chain: `0001 → 0002 → 0003`
-- 18 current backend source/model contract tests passing in this environment
-- backend/app/test Python compilation clean
+Run #31 also closes the two defects found by Run #30:
 
-## Still not claimed Passed
+- `EX-TC-004`: inferred `issuing_authority` retains the complete value and remains `trust_state=inferred`.
+- `PR-TC-002`: every returned sensitive textual-field `visual_region_id` resolves to exactly one serialized `sensitive_regions` entry.
 
-- UM-TC-001: running-stack response/timing comparison and real mail transport evidence required
-- UM-TC-002: running login/session/authorization evidence required
-- UM-TC-003: running reset-link expiry, one-time use, old-password failure, new-password success and session-revocation evidence required
-- UM-TC-004: running Redis idle-expiry/logout replay evidence required
-- UM-TC-005: running authenticator/TOTP setup, confirmation, login challenge and disable evidence required
-- DI-TC-001–005: running Postgres/MinIO/Celery tests with real files and mixed-success bulk batches required
+## Implemented product scope
 
-## Environment limitation during this patch
+### User management and security
 
-The active execution environment has `cryptography`, FastAPI, SQLAlchemy and `pypdf`, but does not currently have `pyotp`, `redis`, or `celery` installed. Outbound package installation is not assumed. Therefore this slice was validated with compilation plus source/model contracts; it does **not** claim runtime acceptance evidence.
+- Anti-enumerating registration, login and password-reset behavior
+- One-time expiring verification and password-reset tokens
+- Redis-backed idle sessions, logout and credential-change revocation
+- Optional TOTP with encrypted-at-rest secret and explicit confirmation
+- Owner-scoped document, OCR, analysis, review, export and reveal operations
+- Default masking of sensitive financial values and signature regions
+- Audited, non-cached owner reveal with non-enumerating foreign-resource denial
 
-## Next coding slice
+### Document processing
 
-1. Bring up / exercise the full local dependency stack and capture UM/DI running-stack acceptance evidence.
-2. Close any defects found by UM-TC-001/002/003/004/005 and DI-TC-001–005 execution.
-3. Then move to PP: orientation correction, low-quality assessment, deskew and optional comparative noise reduction.
-4. After PP is stable, begin OCR + CL/CR/EX for Utility + Identity + Unknown.
+- PDF/JPG/PNG single and bulk upload with size/type validation
+- Immutable source/page storage and SHA-256 duplicate detection
+- Explicit duplicate keep with canonical linkage and audit evidence
+- Independent bulk-item failure boundaries
+- Multi-page PDF splitting and page persistence
+- Orientation correction, quality/blur/resolution assessment and deskew routing
+- Printed-text OCR with page, word and bounding-box lineage
+- Seven known classification families plus explicit `unknown`
+- Versioned predefined and generic extraction with confidence, criticality and explicit `not_found`
+- Classification/field review, correction, confirmation and history preservation
+- Organization, owner-scoped search, date sorting and pagination
+- Stable JSON and normalized multi-document CSV export
 
-## Runtime acceptance harness — verified baseline
+### Data model and migrations
 
-The runtime UM/DI acceptance harness under `acceptance/` was executed
-successfully in GitHub Actions Run #7. That evidence recorded 11 passes, two
-then-known gaps, zero functional failures, and passes for all three separate
-anti-enumeration timing probes.
+- **13 persisted domain entities**, including `PreprocessingResult`
+- Sequential Alembic chain: `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008`
 
-Coverage is explicitly mapped to `UM-TC-001..005` and `DI-TC-001..005`. The harness drives behavior through the public API, uses Mailpit as a local SMTP/test-mail sink, generates unique accounts and per-run document content, produces functional JUnit plus separate timing JSON/JUnit, and collects redacted failure diagnostics.
+## Acceptance evidence boundary
 
-The two Run #7 gaps now have implementations and runtime tests prepared for the
-next evidence run: ownership-safe public resource-by-ID retrieval and explicit
-duplicate `keep` with canonical linkage and audit evidence.
+Run #31 proves deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
-Literal browser/UI screenshot evidence is also not claimed by this API-only harness. See `acceptance/coverage-map.json` for the exact step-level crosswalk.
+The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
+
+## Next product decision
+
+The implementation has reached a clean 50-ID runtime baseline. Before adding another feature, define and freeze the next catalogue increment. Recommended order:
+
+1. labelled-corpus AI evaluation for OCR, classification and extraction;
+2. production lifecycle controls: retention, deletion and recovery;
+3. operational readiness: observability, load/resilience and deployment qualification;
+4. expanded review/search/export browser journeys.
+
+No Run #32 feature scope is claimed until one of these increments has explicit acceptance criteria.
