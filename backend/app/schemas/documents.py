@@ -89,7 +89,13 @@ class ClassificationResponse(BaseModel):
     method: str
     processed_at: datetime
     configured_threshold: float
+    review_required: bool
+    reviewed_at: datetime | None = None
     provenance: ResultProvenanceResponse
+
+
+class ClassificationReviewRequest(BaseModel):
+    action: Literal["confirm"]
 
 
 class ExtractedFieldResponse(BaseModel):

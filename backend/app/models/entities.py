@@ -117,6 +117,7 @@ class ClassificationResult(Base):
     model_version: Mapped[str] = mapped_column(String(128), nullable=False)
     method: Mapped[str] = mapped_column(String(128), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     __table_args__ = (CheckConstraint("confidence >= 0 AND confidence <= 1", name="ck_classification_confidence"),)
 

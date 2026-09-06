@@ -185,7 +185,11 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
         ).order_by(ClassificationResult.processed_at.desc())
     )
     if existing:
-        return existing.family, existing.confidence < settings.classification_known_threshold
+        return existing.family, (
+            existing.family == DocumentFamily.UNKNOWN
+            and existing.confidence < 1.0
+            and existing.reviewed_at is None
+        )
 
     rows = db.execute(
         select(Page, OCRArtifact)
@@ -220,6 +224,7 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
         method=decision.method, confidence=decision.confidence,
     ))
 
+    classification_review = decision.family == DocumentFamily.UNKNOWN and decision.confidence < 1.0
     field_review = False
     field_decisions = (
         extract_unknown_fields(combined_text)
@@ -233,10 +238,15 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
             else "predefined_field_rules"
         )
         for field_decision in field_decisions:
+            trust_state = (
+                TrustState.UNCERTAIN
+                if classification_review and field_decision.value is not None
+                else field_decision.trust_state
+            )
             field = ExtractedField(
                 document_id=document.id, field_name=field_decision.name,
                 value=field_decision.value, confidence=field_decision.confidence,
-                trust_state=field_decision.trust_state,
+                trust_state=trust_state,
                 criticality=field_decision.criticality,
                 schema_version=field_decision.schema_version,
                 is_active=True,
@@ -275,8 +285,7 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
                     field_decision.criticality == "critical"
                     and field_decision.trust_state == TrustState.NOT_FOUND
                 )
-                or
-                field_decision.trust_state == TrustState.UNCERTAIN
+                or trust_state == TrustState.UNCERTAIN
                 or (
                     field_decision.confidence is not None
                     and field_decision.confidence < settings.field_review_confidence
@@ -297,10 +306,6 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
                 visual_region_id=signature_region.id,
                 sensitivity_type="signature",
             ))
-    classification_review = (
-        decision.family != DocumentFamily.UNKNOWN
-        and decision.confidence < settings.classification_known_threshold
-    )
     job.status = ProcessingStatus.NEEDS_REVIEW if classification_review or field_review else ProcessingStatus.READY
     db.flush()
     return decision.family, classification_review or field_review

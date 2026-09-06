@@ -34,7 +34,7 @@ type SensitiveRegion = {
 
 type Analysis = {
   document_id:string;
-  classification:{family:string; confidence:number; provider:string; model_version:string; method:string; configured_threshold:number; provenance:Provenance};
+  classification:{family:string; confidence:number; provider:string; model_version:string; method:string; configured_threshold:number; review_required:boolean; reviewed_at?:string|null; provenance:Provenance};
   fields:ExtractedField[];
   sensitive_regions:SensitiveRegion[];
 };
@@ -89,6 +89,14 @@ export default function DocumentDetail() {
     setMessage(action === 'correct' ? 'Correction saved.' : 'Field confirmed.');
   }
 
+  async function confirmClassification() {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/classification/review`, {method:'POST', headers:{Authorization:`Bearer ${token}`, 'Content-Type':'application/json'}, body:JSON.stringify({action:'confirm'})});
+    if (!response.ok) { setMessage('Classification review could not be saved.'); return; }
+    setAnalysis(await response.json()); setMessage('Classification confirmed.');
+  }
+
   async function revealField(field: ExtractedField) {
     const token = localStorage.getItem('access_token');
     if (!token) { window.location.href = '/login'; return; }
@@ -131,6 +139,7 @@ export default function DocumentDetail() {
         <h3>Classification</h3>
         <p><strong>{analysis.classification.family}</strong> · {Math.round(analysis.classification.confidence * 100)}% confidence</p>
         <details><summary>Classification provenance</summary><p>{analysis.classification.provider} · {analysis.classification.model_version} · {analysis.classification.method}</p></details>
+        {analysis.classification.review_required && <div role="alert"><p>This classification is ambiguous and must be reviewed before fields can be approved.</p><button type="button" onClick={confirmClassification}>Confirm {analysis.classification.family}</button></div>}
       </div>
       <h3>Extracted fields</h3>
       {analysis.fields.map(field => <article className="card" data-testid={`field-${field.field_name}`} key={field.id}>
@@ -139,8 +148,8 @@ export default function DocumentDetail() {
         <p>{field.trust_state} · {field.criticality}{field.confidence == null ? '' : ` · ${Math.round(field.confidence * 100)}% confidence`}</p>
         {field.sensitive && <p><button type="button" onClick={() => revealField(field)}>Reveal {field.field_name.replaceAll('_', ' ')}</button></p>}
         <label>Correct {field.field_name}<input aria-label={`Correct ${field.field_name}`} placeholder={field.sensitive ? 'Enter replacement value' : ''} value={drafts[field.id] ?? (field.sensitive ? '' : field.value ?? '')} onChange={event => setDrafts({...drafts, [field.id]:event.target.value})}/></label>
-        <button type="button" onClick={() => reviewField(field, 'correct')}>Save correction</button>{' '}
-        <button type="button" onClick={() => reviewField(field, 'confirm')}>Confirm</button>
+        <button type="button" disabled={analysis.classification.review_required} onClick={() => reviewField(field, 'correct')}>Save correction</button>{' '}
+        <button type="button" disabled={analysis.classification.review_required} onClick={() => reviewField(field, 'confirm')}>Confirm</button>
         <details><summary>Provenance</summary><p>{field.provenance.provider} · {field.provenance.model_version} · {field.provenance.method}</p><p className="hash">Page: {field.provenance.source_page_id ?? 'document level'} · Region: {field.provenance.visual_region_id ?? 'not recorded'}</p></details>
         {field.corrections.length > 0 && <div><h5>Correction history</h5><ul>{field.corrections.map(correction => <li key={correction.id}>{correction.prior_value ?? 'Not found'} → {correction.corrected_value} · {new Date(correction.created_at).toLocaleString()}</li>)}</ul></div>}
       </article>)}

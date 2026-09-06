@@ -5,7 +5,7 @@ import io
 import json
 import uuid
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -24,6 +24,7 @@ from app.models import (
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
     BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
+    ClassificationReviewRequest,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse, DocumentSearchResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
     OrganizedDocumentResponse, SensitiveRegionResponse, SensitiveRevealResponse,
@@ -312,6 +313,14 @@ def _provenance_response(provenance: Provenance) -> ResultProvenanceResponse:
     )
 
 
+def _classification_review_required(classification: ClassificationResult) -> bool:
+    return (
+        classification.family.value == "unknown"
+        and classification.confidence < 1.0
+        and classification.reviewed_at is None
+    )
+
+
 @router.get("/{document_id}/analysis", response_model=DocumentAnalysisResponse)
 def get_document_analysis(
     document_id: uuid.UUID,
@@ -396,11 +405,37 @@ def get_document_analysis(
             method=classification.method,
             processed_at=classification.processed_at,
             configured_threshold=settings.classification_known_threshold,
+            review_required=_classification_review_required(classification),
+            reviewed_at=classification.reviewed_at,
             provenance=_provenance_response(classification_provenance),
         ),
         fields=field_responses,
         sensitive_regions=sensitive_regions,
     )
+
+
+@router.post("/{document_id}/classification/review", response_model=DocumentAnalysisResponse)
+def review_classification(
+    document_id: uuid.UUID,
+    request: ClassificationReviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = db.scalar(select(Document).where(Document.id == document_id, Document.user_id == user.id))
+    classification = db.scalar(select(ClassificationResult).where(
+        ClassificationResult.document_id == document_id,
+        ClassificationResult.is_active.is_(True),
+    ).order_by(ClassificationResult.processed_at.desc())) if document else None
+    if not document or not classification:
+        raise HTTPException(status_code=404, detail="Classification not found")
+    classification.reviewed_at = datetime.now(timezone.utc)
+    db.add(AuditEvent(
+        user_id=user.id, event_type=AuditEventType.CONFIRMATION,
+        target_type="classification_result", target_id=str(classification.id),
+        metadata_json={"action": request.action, "family": classification.family.value},
+    ))
+    db.commit()
+    return get_document_analysis(document_id, db, user)
 
 
 def _export_payload(document: Document, analysis: DocumentAnalysisResponse) -> dict:
@@ -501,6 +536,12 @@ def review_field(document_id: uuid.UUID, field_id: uuid.UUID, request: FieldRevi
     field = db.scalar(select(ExtractedField).where(ExtractedField.id == field_id, ExtractedField.document_id == document_id, ExtractedField.is_active.is_(True)))
     if not document or not field:
         raise HTTPException(status_code=404, detail="Field not found")
+    classification = db.scalar(select(ClassificationResult).where(
+        ClassificationResult.document_id == document_id,
+        ClassificationResult.is_active.is_(True),
+    ).order_by(ClassificationResult.processed_at.desc()))
+    if classification and _classification_review_required(classification):
+        raise HTTPException(status_code=409, detail={"code": "classification_review_required"})
     provenance = db.scalar(select(Provenance).where(Provenance.extracted_field_id == field.id))
     if request.action == "correct":
         value = (request.value or "").strip()

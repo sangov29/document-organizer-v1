@@ -1,6 +1,6 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance through OR-TC-004 and SR-TC-003, including 29 frozen catalogue IDs",
+  "scope": "Runtime acceptance through CL-TC-005 and VA-TC-004, including 37 frozen catalogue IDs",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -84,6 +84,23 @@
       "evidence": "analysis/CL-TC-001-results.json and recorded public API responses",
       "claim_limit": "Deterministic keyword-fixture behavior only; corpus precision/recall/F1 and false-known/false-unknown rates remain AI-EVAL work"
     },
+    "CL-TC-002": {
+      "pytest": ["test_CL_TC_002_classification_confidence_envelope"],
+      "steps": {"1": "known-family fixture classified", "2": "confidence returned", "3": "confidence bounded zero to one", "4": "configured threshold and review decision returned"}
+    },
+    "CL-TC-003": {
+      "pytest": ["test_CL_TC_003_ambiguous_classification_routes_to_review"],
+      "steps": {"1": "partial family evidence supplied", "2": "outcome retained as Unknown", "3": "ambiguous confidence distinguished from confident Unknown", "4": "persistent review_required returned", "5": "document routed to needs_review"}
+    },
+    "CL-TC-004": {
+      "pytest": ["test_CL_TC_004_same_family_documents_do_not_merge"],
+      "steps": {"1": "two same-family sources uploaded independently", "2": "both classified", "3": "distinct document IDs retained", "4": "both remain listed", "5": "no continuity evidence means no merge"},
+      "claim_limit": "V1 document boundaries are explicit upload boundaries; automatic cross-upload page merging is not performed"
+    },
+    "CL-TC-005": {
+      "pytest": ["test_CL_TC_005_confident_unknown_is_valid_outcome"],
+      "steps": {"1": "zero-marker OOD fixture uploaded", "2": "Unknown assigned", "3": "confidence indicates no known-family evidence", "4": "valid Unknown is not forced into review"}
+    },
     "EX-TC-008": {
       "pytest": ["test_EX_TC_008_versioned_predefined_field_criticality"],
       "steps": {"1": "versioned starter schemas are selected for Identity and Utility", "2": "every expected field is attempted", "3": "each field is explicitly critical or standard", "4": "found values carry independent field confidence", "5": "an absent billing period is explicit not_found", "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"},
@@ -151,6 +168,23 @@
       "pytest": ["test_SR_TC_003_date_sort_and_pagination"],
       "steps": {"1": "dated documents uploaded", "2": "inclusive date range applied", "3": "newest/oldest order supported", "4": "stable ID tie-breaker used", "5": "page and page_size enforced", "6": "future range excludes existing documents"},
       "claim_limit": "Database-backed owner search; performance qualification remains a later NFR gate"
+    },
+    "VA-TC-001": {
+      "pytest": ["test_VA_TC_001_ambiguous_fields_are_explicitly_uncertain"],
+      "steps": {"1": "ambiguous classification produced", "2": "extracted value remains visible", "3": "field trust state is uncertain", "4": "review context remains explicit"}
+    },
+    "VA-TC-002": {
+      "pytest": ["test_VA_TC_002_field_approval_waits_for_classification_review"],
+      "steps": {"1": "ambiguous classification remains unresolved", "2": "field approval rejected with stable conflict code", "3": "owner confirms classification", "4": "review state persists", "5": "field approval then succeeds", "6": "classification confirmation audited"}
+    },
+    "VA-TC-003": {
+      "pytest": ["test_VA_TC_003_correction_persists_after_save"],
+      "steps": {"1": "field extracted", "2": "owner submits correction", "3": "active value changes", "4": "trust state becomes corrected", "5": "reopen retains correction"}
+    },
+    "VA-TC-004": {
+      "pytest": ["test_VA_TC_004_correction_audit_does_not_retrain_model"],
+      "steps": {"1": "model envelope captured", "2": "correction saved", "3": "correction audit event appended", "4": "classification provider/model/method unchanged", "5": "no online retraining claim or mutation"},
+      "claim_limit": "Corrections are durable review facts; model retraining is deliberately offline and outside this endpoint"
     }
   }
 }
