@@ -80,6 +80,7 @@ class ExtractedFieldResponse(BaseModel):
     confidence: float | None
     trust_state: str
     criticality: str
+    schema_version: str | None
     provenance: ResultProvenanceResponse
 
 

@@ -287,7 +287,7 @@ def get_document_analysis(
         field_responses.append(ExtractedFieldResponse(
             field_name=field.field_name, value=field.value,
             confidence=field.confidence, trust_state=field.trust_state.value,
-            criticality=field.criticality,
+            criticality=field.criticality, schema_version=field.schema_version,
             provenance=_provenance_response(provenance),
         ))
     return DocumentAnalysisResponse(

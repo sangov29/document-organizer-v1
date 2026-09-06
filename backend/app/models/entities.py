@@ -130,6 +130,7 @@ class ExtractedField(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     trust_state: Mapped[TrustState] = mapped_column(Enum(TrustState, name="trust_state"), nullable=False)
     criticality: Mapped[str] = mapped_column(String(16), nullable=False)
+    schema_version: Mapped[str | None] = mapped_column(String(64))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     __table_args__ = (

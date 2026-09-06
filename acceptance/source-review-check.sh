@@ -12,9 +12,9 @@ expected = (
     | {f'DI-TC-{i:03d}' for i in range(1,6)}
     | {f'PP-TC-{i:03d}' for i in range(1,5)}
     | {'CR-TC-001'}
-    | {'CL-TC-001', 'EX-TC-009'}
+    | {'CL-TC-001', 'EX-TC-008', 'EX-TC-009'}
 )
 actual = set(m['tests'])
 assert actual == expected, (expected - actual, actual - expected)
-print('source-review checks passed: Python compile + exact 17-ID coverage map')
+print('source-review checks passed: Python compile + exact 18-ID coverage map')
 PY

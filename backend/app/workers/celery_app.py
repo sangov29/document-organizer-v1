@@ -16,7 +16,11 @@ from app.services.email import email_service
 from app.services.storage import storage
 from app.services.preprocessing import preprocess_page
 from app.services.ocr import recognize_page
-from app.services.analysis import classify_text, extract_unknown_fields
+from app.services.analysis import (
+    MODEL_VERSION as ANALYSIS_MODEL_VERSION,
+    PROVIDER as ANALYSIS_PROVIDER,
+    classify_text, extract_predefined_fields, extract_unknown_fields,
+)
 
 celery = Celery("document_organizer", broker=settings.redis_url, backend=settings.redis_url)
 celery.conf.task_track_started = True
@@ -211,23 +215,41 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
     ))
 
     field_review = False
-    if decision.family == DocumentFamily.UNKNOWN:
-        for field_decision in extract_unknown_fields(combined_text):
+    field_decisions = (
+        extract_unknown_fields(combined_text)
+        if decision.family == DocumentFamily.UNKNOWN
+        else extract_predefined_fields(decision.family, combined_text)
+    )
+    if field_decisions:
+        extraction_method = (
+            "generic_unknown_rules"
+            if decision.family == DocumentFamily.UNKNOWN
+            else "predefined_field_rules"
+        )
+        for field_decision in field_decisions:
             field = ExtractedField(
                 document_id=document.id, field_name=field_decision.name,
                 value=field_decision.value, confidence=field_decision.confidence,
                 trust_state=field_decision.trust_state,
-                criticality=field_decision.criticality, is_active=True,
+                criticality=field_decision.criticality,
+                schema_version=field_decision.schema_version,
+                is_active=True,
             )
             db.add(field)
             db.flush()
             db.add(Provenance(
                 extracted_field_id=field.id,
                 source_document_id=document.id, source_page_id=first_page.id,
-                provider=decision.provider, model_version=decision.model_version,
-                method="generic_unknown_rules", confidence=field_decision.confidence,
+                provider=ANALYSIS_PROVIDER,
+                model_version=field_decision.schema_version or ANALYSIS_MODEL_VERSION,
+                method=extraction_method, confidence=field_decision.confidence,
             ))
             field_review = field_review or (
+                (
+                    field_decision.criticality == "critical"
+                    and field_decision.trust_state == TrustState.NOT_FOUND
+                )
+                or
                 field_decision.trust_state == TrustState.UNCERTAIN
                 or (
                     field_decision.confidence is not None

@@ -10,6 +10,7 @@ from app.models.enums import DocumentFamily, TrustState
 PROVIDER = "builtin-rules"
 MODEL_VERSION = "keyword-v1"
 METHOD = "keyword_rules"
+SCHEMA_VERSION = "schema-v0.1"
 
 FAMILY_MARKERS: dict[DocumentFamily, tuple[str, ...]] = {
     DocumentFamily.IDENTITY: ("PASSPORT", "IDENTITY", "DATE OF BIRTH"),
@@ -26,6 +27,27 @@ GENERIC_PATTERNS = {
     "generic_date": re.compile(r"^\s*date\s*:\s*(.+?)\s*$", re.I | re.M),
     "generic_amount": re.compile(r"^\s*amount\s*:\s*(.+?)\s*$", re.I | re.M),
     "generic_address": re.compile(r"^\s*address\s*:\s*(.+?)\s*$", re.I | re.M),
+}
+
+PREDEFINED_SCHEMAS: dict[DocumentFamily, dict[str, tuple[str, tuple[str, ...]]]] = {
+    DocumentFamily.IDENTITY: {
+        "full_name": ("critical", ("Full Name", "Name")),
+        "document_number": ("critical", ("Document Number", "Passport Number", "ID Number")),
+        "date_of_birth": ("critical", ("Date of Birth", "DOB")),
+        "issue_date": ("standard", ("Issue Date", "Date of Issue")),
+        "expiry_date": ("critical", ("Expiry Date", "Date of Expiry")),
+        "issuing_authority": ("standard", ("Issuing Authority", "Authority")),
+        "nationality": ("standard", ("Nationality",)),
+    },
+    DocumentFamily.UTILITY: {
+        "account_holder": ("critical", ("Account Holder", "Customer Name")),
+        "service_address": ("critical", ("Service Address", "Supply Address")),
+        "consumer_account_number": ("critical", ("Consumer Number", "Account Number")),
+        "billing_period": ("standard", ("Billing Period",)),
+        "amount_due": ("critical", ("Amount Due",)),
+        "due_date": ("critical", ("Due Date",)),
+        "provider": ("standard", ("Provider", "Service Provider")),
+    },
 }
 
 
@@ -45,6 +67,7 @@ class GenericFieldDecision:
     confidence: float | None
     trust_state: TrustState
     criticality: str = "standard"
+    schema_version: str | None = None
 
 
 def classify_text(text: str) -> ClassificationDecision:
@@ -69,5 +92,21 @@ def extract_unknown_fields(text: str) -> list[GenericFieldDecision]:
             value=value,
             confidence=0.90 if value else None,
             trust_state=TrustState.EXTRACTED if value else TrustState.NOT_FOUND,
+        ))
+    return fields
+
+
+def extract_predefined_fields(family: DocumentFamily, text: str) -> list[GenericFieldDecision]:
+    schema = PREDEFINED_SCHEMAS.get(family, {})
+    fields = []
+    for name, (criticality, labels) in schema.items():
+        alternatives = "|".join(re.escape(label) for label in labels)
+        pattern = re.compile(rf"^\s*(?:{alternatives})\s*:\s*(.+?)\s*$", re.I | re.M)
+        match = pattern.search(text)
+        value = match.group(1).strip() if match else None
+        fields.append(GenericFieldDecision(
+            name=name, value=value, confidence=0.90 if value else None,
+            trust_state=TrustState.EXTRACTED if value else TrustState.NOT_FOUND,
+            criticality=criticality, schema_version=SCHEMA_VERSION,
         ))
     return fields

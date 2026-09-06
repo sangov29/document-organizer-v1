@@ -105,3 +105,64 @@ def test_EX_TC_009_unknown_generic_extraction(api, evidence, auth_token, run_id)
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "EX-TC-009-result.json").write_text(json.dumps(result, indent=2))
+
+
+@pytest.mark.catalogue("EX-TC-008", steps="1-6")
+def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_token, run_id):
+    fixtures = {
+        "identity": [
+            "PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH: 29 October 1988",
+            "Full Name: Gov Test", "Passport Number: P1234567",
+            "Issue Date: 01 January 2021", "Expiry Date: 01 January 2031",
+            "Issuing Authority: Test Authority", "Nationality: Testland",
+        ],
+        "utility": [
+            "UTILITY BILL", "ELECTRICITY SERVICE", "AMOUNT DUE: 125.50",
+            "Account Holder: Gov Test", "Service Address: 10 Example Road",
+            "Account Number: AC123456", "Due Date: 30 September 2026",
+            "Provider: Example Energy",
+        ],
+    }
+    expected = {
+        "identity": {
+            "full_name": "critical", "document_number": "critical",
+            "date_of_birth": "critical", "issue_date": "standard",
+            "expiry_date": "critical", "issuing_authority": "standard",
+            "nationality": "standard",
+        },
+        "utility": {
+            "account_holder": "critical", "service_address": "critical",
+            "consumer_account_number": "critical", "billing_period": "standard",
+            "amount_due": "critical", "due_date": "critical", "provider": "standard",
+        },
+    }
+    results = {}
+    for family, lines in fixtures.items():
+        result = _upload_and_wait(api, auth_token, run_id, f"ex008-{family}", lines)
+        assert result["classification"]["family"] == family
+        fields = {field["field_name"]: field for field in result["fields"]}
+        assert set(fields) == set(expected[family])
+        for name, criticality in expected[family].items():
+            field = fields[name]
+            assert field["criticality"] == criticality
+            assert field["schema_version"] == "schema-v0.1"
+            assert field["trust_state"] in {"extracted", "not_found"}
+            if field["trust_state"] == "extracted":
+                assert field["value"] and 0 <= field["confidence"] <= 1
+            else:
+                assert field["value"] is None and field["confidence"] is None
+            provenance = field["provenance"]
+            assert provenance["source_document_id"] == result["document_id"]
+            assert provenance["source_page_id"]
+            assert provenance["model_version"] == "schema-v0.1"
+            assert provenance["method"] == "predefined_field_rules"
+        results[family] = result
+
+    # Billing period is intentionally absent to prove a predefined field is
+    # explicit not_found rather than omitted or represented as an empty value.
+    utility_fields = {f["field_name"]: f for f in results["utility"]["fields"]}
+    assert utility_fields["billing_period"]["trust_state"] == "not_found"
+    evidence.note("versioned-predefined-fields", results)
+    folder = EVIDENCE_DIR / "analysis"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "EX-TC-008-results.json").write_text(json.dumps(results, indent=2))

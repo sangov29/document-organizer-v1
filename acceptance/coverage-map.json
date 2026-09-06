@@ -1,6 +1,6 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance for UM-TC-001..005, DI-TC-001..005, PP-TC-001..004, CR-TC-001, CL-TC-001, and EX-TC-009",
+  "scope": "Runtime acceptance for UM-TC-001..005, DI-TC-001..005, PP-TC-001..004, CR-TC-001, CL-TC-001, EX-TC-008, and EX-TC-009",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -83,6 +83,13 @@
       "steps": {"1": "deterministic fixtures cover seven known families and OOD Unknown", "2": "each source is uploaded through the public API", "3": "classification runs after persisted OCR", "4": "exactly one active outcome is returned per document", "5": "confidence, configured threshold, provider, model, method and timestamp are returned", "6": "document/page provenance is returned and machine-readable evidence is saved"},
       "evidence": "analysis/CL-TC-001-results.json and recorded public API responses",
       "claim_limit": "Deterministic keyword-fixture behavior only; corpus precision/recall/F1 and false-known/false-unknown rates remain AI-EVAL work"
+    },
+    "EX-TC-008": {
+      "pytest": ["test_EX_TC_008_versioned_predefined_field_criticality"],
+      "steps": {"1": "versioned starter schemas are selected for Identity and Utility", "2": "every expected field is attempted", "3": "each field is explicitly critical or standard", "4": "found values carry independent field confidence", "5": "an absent billing period is explicit not_found", "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"},
+      "evidence": "analysis/EX-TC-008-results.json and recorded public API responses",
+      "schema_decision": "schema-v0.1; Utility fields come from the agreed example, while the Identity starter list is a new versioned implementation decision",
+      "claim_limit": "Deterministic rule fixtures only; correction/confirmation UI and corpus extraction accuracy remain later gates"
     },
     "EX-TC-009": {
       "pytest": ["test_EX_TC_009_unknown_generic_extraction"],
