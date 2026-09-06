@@ -9,9 +9,34 @@ type Doc = {
   size_bytes:number; sha256:string; uploaded_at:string; duplicate_of_document_id?:string|null;
 };
 
+type Provenance = {
+  id:string;
+  source_document_id:string; source_page_id?:string|null; visual_region_id?:string|null;
+  provider:string; model_version:string; method:string; confidence?:number|null; processed_at:string;
+};
+
+type Correction = {
+  id:string; prior_value?:string|null; corrected_value:string; user_id:string;
+  prior_provenance_id?:string|null; created_at:string;
+};
+
+type ExtractedField = {
+  id:string; field_name:string; value?:string|null; confidence?:number|null;
+  trust_state:string; criticality:string; schema_version?:string|null;
+  provenance:Provenance; corrections:Correction[];
+};
+
+type Analysis = {
+  document_id:string;
+  classification:{family:string; confidence:number; provider:string; model_version:string; method:string; configured_threshold:number; provenance:Provenance};
+  fields:ExtractedField[];
+};
+
 export default function DocumentDetail() {
   const params = useParams<{id:string}>();
   const [document, setDocument] = useState<Doc|null>(null);
+  const [analysis, setAnalysis] = useState<Analysis|null>(null);
+  const [drafts, setDrafts] = useState<Record<string,string>>({});
   const [message, setMessage] = useState('Loading document…');
 
   useEffect(() => {
@@ -22,10 +47,38 @@ export default function DocumentDetail() {
       if (response.status === 401) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; }
       if (response.status === 404) { setMessage('Document not found.'); return; }
       if (!response.ok) { setMessage('Document could not be loaded.'); return; }
-      setDocument(await response.json()); setMessage('');
+      setDocument(await response.json());
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const analysisResponse = await fetch(`${API}/api/v1/documents/${params.id}/analysis`, {headers:{Authorization:`Bearer ${token}`}});
+        if (analysisResponse.ok) {
+          setAnalysis(await analysisResponse.json());
+          setMessage('');
+          return;
+        }
+        if (analysisResponse.status !== 202) {
+          setMessage('Document analysis could not be loaded.');
+          return;
+        }
+        setMessage('Document analysis is still processing…');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      setMessage('Document analysis is still processing. Refresh this page shortly.');
     }
     load();
   }, [params.id]);
+
+  async function reviewField(field: ExtractedField, action: 'confirm'|'correct') {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/fields/${field.id}/review`, {
+      method: 'POST',
+      headers: {Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
+      body: JSON.stringify(action === 'correct' ? {action, value: drafts[field.id] ?? field.value ?? ''} : {action}),
+    });
+    if (!response.ok) { setMessage('Field review could not be saved.'); return; }
+    setAnalysis(await response.json());
+    setMessage(action === 'correct' ? 'Correction saved.' : 'Field confirmed.');
+  }
 
   return <><p><Link href="/documents">← Back to documents</Link></p><h1>Document details</h1>
     <p role="status">{message}</p>
@@ -34,5 +87,24 @@ export default function DocumentDetail() {
       {document.duplicate_of_document_id && <p><strong>Kept duplicate</strong></p>}
       <dl><dt>Status</dt><dd>{document.status}</dd><dt>Type</dt><dd>{document.mime_type}</dd><dt>Size</dt><dd>{document.size_bytes} bytes</dd><dt>Uploaded</dt><dd>{new Date(document.uploaded_at).toLocaleString()}</dd><dt>SHA-256</dt><dd className="hash">{document.sha256}</dd>{document.duplicate_of_document_id && <><dt>Duplicate of</dt><dd className="hash">{document.duplicate_of_document_id}</dd></>}</dl>
     </div>}
+    {analysis && <section aria-labelledby="analysis-heading">
+      <h2 id="analysis-heading">Document analysis</h2>
+      <div className="card" data-testid="classification">
+        <h3>Classification</h3>
+        <p><strong>{analysis.classification.family}</strong> · {Math.round(analysis.classification.confidence * 100)}% confidence</p>
+        <details><summary>Classification provenance</summary><p>{analysis.classification.provider} · {analysis.classification.model_version} · {analysis.classification.method}</p></details>
+      </div>
+      <h3>Extracted fields</h3>
+      {analysis.fields.map(field => <article className="card" data-testid={`field-${field.field_name}`} key={field.id}>
+        <h4>{field.field_name.replaceAll('_', ' ')}</h4>
+        <p><strong>{field.value ?? 'Not found'}</strong></p>
+        <p>{field.trust_state} · {field.criticality}{field.confidence == null ? '' : ` · ${Math.round(field.confidence * 100)}% confidence`}</p>
+        <label>Correct {field.field_name}<input aria-label={`Correct ${field.field_name}`} value={drafts[field.id] ?? field.value ?? ''} onChange={event => setDrafts({...drafts, [field.id]:event.target.value})}/></label>
+        <button type="button" onClick={() => reviewField(field, 'correct')}>Save correction</button>{' '}
+        <button type="button" onClick={() => reviewField(field, 'confirm')}>Confirm</button>
+        <details><summary>Provenance</summary><p>{field.provenance.provider} · {field.provenance.model_version} · {field.provenance.method}</p><p className="hash">Page: {field.provenance.source_page_id ?? 'document level'} · Region: {field.provenance.visual_region_id ?? 'not recorded'}</p></details>
+        {field.corrections.length > 0 && <div><h5>Correction history</h5><ul>{field.corrections.map(correction => <li key={correction.id}>{correction.prior_value ?? 'Not found'} → {correction.corrected_value} · {new Date(correction.created_at).toLocaleString()}</li>)}</ul></div>}
+      </article>)}
+    </section>}
   </>;
 }

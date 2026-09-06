@@ -50,9 +50,32 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await expect(page.getByRole('status')).toContainText('Kept duplicate ui-proof-copy.png');
   await expect(page.getByTestId('document-card')).toHaveCount(2);
 
+  const originalAnalysis = {
+    document_id: 'ui-document',
+    classification: {
+      family: 'utility_bill', confidence: 0.98, provider: 'rules', model_version: 'schema-v0.1', method: 'keyword_rules',
+      configured_threshold: 0.75,
+      provenance: {id: 'classification-provenance', source_document_id: 'ui-document', source_page_id: null, visual_region_id: null, provider: 'rules', model_version: 'schema-v0.1', method: 'keyword_rules', confidence: 0.98, processed_at: new Date().toISOString()},
+    },
+    fields: [{
+      id: 'field-amount', field_name: 'amount_due', value: '15,000', confidence: 0.91,
+      trust_state: 'extracted', criticality: 'critical', schema_version: 'schema-v0.1', corrections: [],
+      provenance: {id: 'provenance-1', source_document_id: 'ui-document', source_page_id: 'page-1', visual_region_id: 'region-1', provider: 'tesseract', model_version: '5', method: 'regex', confidence: 0.91, processed_at: new Date().toISOString()},
+    }],
+  };
+  const correctedAnalysis = JSON.parse(JSON.stringify(originalAnalysis));
+  correctedAnalysis.fields[0] = {...correctedAnalysis.fields[0], value: '75,000', confidence: null, trust_state: 'corrected', corrections: [{id: 'correction-1', prior_value: '15,000', corrected_value: '75,000', user_id: 'ui-user', prior_provenance_id: 'provenance-1', created_at: new Date().toISOString()}]};
+  await page.route(/\/api\/v1\/documents\/[^/]+\/analysis$/, async route => route.fulfill({json: originalAnalysis}));
+  await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-amount\/review$/, async route => route.fulfill({json: correctedAnalysis}));
   await page.getByRole('link', {name: 'ui-proof-copy.png'}).click();
   await expect(page.getByTestId('document-detail')).toContainText(/kept duplicate/i);
   await expect(page.getByText('Duplicate of')).toBeVisible();
+  await expect(page.getByTestId('classification')).toContainText('utility_bill');
+  await expect(page.getByTestId('field-amount_due')).toContainText('15,000');
+  await page.getByLabel('Correct amount_due').fill('75,000');
+  await page.getByTestId('field-amount_due').getByRole('button', {name: 'Save correction'}).click();
+  await expect(page.getByRole('status')).toContainText('Correction saved.');
+  await expect(page.getByTestId('field-amount_due')).toContainText('15,000 → 75,000');
   await page.screenshot({path: '/evidence/ui-document-detail.png', fullPage: true});
 
   await page.getByRole('link', {name: /Back to documents/}).click();

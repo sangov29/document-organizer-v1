@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Literal
+from pydantic import BaseModel, Field
 
 
 class DocumentResponse(BaseModel):
@@ -53,6 +54,7 @@ class DocumentOCRResponse(BaseModel):
 
 
 class ResultProvenanceResponse(BaseModel):
+    id: str
     source_document_id: str
     source_page_id: str | None
     visual_region_id: str | None
@@ -75,6 +77,7 @@ class ClassificationResponse(BaseModel):
 
 
 class ExtractedFieldResponse(BaseModel):
+    id: str
     field_name: str
     value: str | None
     confidence: float | None
@@ -82,6 +85,12 @@ class ExtractedFieldResponse(BaseModel):
     criticality: str
     schema_version: str | None
     provenance: ResultProvenanceResponse
+    corrections: list[dict] = Field(default_factory=list)
+
+
+class FieldReviewRequest(BaseModel):
+    action: Literal["confirm", "correct"]
+    value: str | None = None
 
 
 class DocumentAnalysisResponse(BaseModel):

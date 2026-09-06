@@ -9,14 +9,14 @@ from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
-    AuditEvent, ClassificationResult, Document, ExtractedField, OCRArtifact,
-    Page, ProcessingJob, Provenance, User,
+    AuditEvent, ClassificationResult, Correction, Document, ExtractedField,
+    OCRArtifact, Page, ProcessingJob, Provenance, User,
 )
-from app.models.enums import AuditEventType, ProcessingStatus
+from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
     BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse,
-    ExtractedFieldResponse, OCRPageResponse, ResultProvenanceResponse,
+    ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
 )
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
@@ -237,6 +237,7 @@ def get_document_ocr(
 
 def _provenance_response(provenance: Provenance) -> ResultProvenanceResponse:
     return ResultProvenanceResponse(
+        id=str(provenance.id),
         source_document_id=str(provenance.source_document_id),
         source_page_id=str(provenance.source_page_id) if provenance.source_page_id else None,
         visual_region_id=str(provenance.visual_region_id) if provenance.visual_region_id else None,
@@ -285,10 +286,12 @@ def get_document_analysis(
         if not provenance:
             raise HTTPException(status_code=500, detail="Field provenance is missing")
         field_responses.append(ExtractedFieldResponse(
+            id=str(field.id),
             field_name=field.field_name, value=field.value,
             confidence=field.confidence, trust_state=field.trust_state.value,
             criticality=field.criticality, schema_version=field.schema_version,
             provenance=_provenance_response(provenance),
+            corrections=[{"id": str(c.id), "prior_value": c.prior_value, "corrected_value": c.corrected_value, "user_id": str(c.user_id), "prior_provenance_id": str(c.prior_provenance_id) if c.prior_provenance_id else None, "created_at": c.created_at} for c in db.scalars(select(Correction).where(Correction.extracted_field_id == field.id).order_by(Correction.created_at)).all()],
         ))
     return DocumentAnalysisResponse(
         document_id=str(document.id),
@@ -304,3 +307,24 @@ def get_document_analysis(
         ),
         fields=field_responses,
     )
+
+
+@router.post("/{document_id}/fields/{field_id}/review", response_model=DocumentAnalysisResponse)
+def review_field(document_id: uuid.UUID, field_id: uuid.UUID, request: FieldReviewRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = db.scalar(select(Document).where(Document.id == document_id, Document.user_id == user.id))
+    field = db.scalar(select(ExtractedField).where(ExtractedField.id == field_id, ExtractedField.document_id == document_id, ExtractedField.is_active.is_(True)))
+    if not document or not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    provenance = db.scalar(select(Provenance).where(Provenance.extracted_field_id == field.id))
+    if request.action == "correct":
+        value = (request.value or "").strip()
+        if not value:
+            raise HTTPException(status_code=422, detail="Corrected value is required")
+        correction = Correction(extracted_field_id=field.id, user_id=user.id, prior_value=field.value, corrected_value=value, prior_provenance_id=provenance.id if provenance else None)
+        db.add(correction); field.value = value; field.confidence = None; field.trust_state = TrustState.CORRECTED
+        event = AuditEventType.CORRECTION
+    else:
+        field.trust_state = TrustState.CONFIRMED; event = AuditEventType.CONFIRMATION
+    db.add(AuditEvent(user_id=user.id, event_type=event, target_type="extracted_field", target_id=str(field.id), metadata_json={"action": request.action, "field_name": field.field_name}))
+    db.commit()
+    return get_document_analysis(document_id, db, user)

@@ -1,6 +1,6 @@
 {
   "baseline": "Test Catalogue v0.2 UM/DI/PP/CR/CL/EX baseline",
-  "scope": "Runtime acceptance for UM-TC-001..005, DI-TC-001..005, PP-TC-001..004, CR-TC-001, CL-TC-001, EX-TC-008, and EX-TC-009",
+  "scope": "Runtime acceptance through PR-TC-004, including 19 frozen catalogue IDs",
   "rules": {
     "drive": "Public HTTP API for UM/DI and public ingestion plus page-preprocessing service output for PP",
     "inspection": "DB/storage/config inspection only where the frozen catalogue explicitly requires evidence; diagnostics may inspect ProcessingJob state/correlation IDs after a failure",
@@ -96,6 +96,12 @@
       "steps": {"1": "OOD fixture remains classified Unknown", "2": "generic name/date/amount/address are all attempted", "3": "found values carry confidence", "4": "missing address is explicit not_found", "5": "each field carries document/page/provider/model/method/timestamp provenance", "6": "Unknown OCR remains retrievable through the public API"},
       "evidence": "analysis/EX-TC-009-result.json and public OCR response",
       "claim_limit": "Rule-based deterministic generic extraction; no general extraction-accuracy claim"
+    },
+    "PR-TC-004": {
+      "pytest": ["test_PR_TC_004_correction_preserves_ai_history"],
+      "steps": {"1": "capture original value and provenance", "2": "correct 15,000 to 75,000 through owner-scoped public API", "3": "corrected value becomes active", "4": "original model/page/region/confidence provenance remains unchanged", "5": "actor/time/prior value/prior provenance are retained", "6": "refresh/reopen preserves active correction and history; confirmation is also logged"},
+      "evidence": "review/PR-TC-004-result.json and recorded public API responses",
+      "claim_limit": "Reprocessing/no-silent-overwrite remains PR-TC-006"
     }
   }
 }
