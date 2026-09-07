@@ -34,9 +34,13 @@ class Settings(BaseSettings):
     pp_orientation_confidence: float = 5.0
     pp_deskew_max_degrees: float = 15.0
     pp_noise_reduction_enabled: bool = False
-    ocr_provider: str = "tesseract"
-    ocr_model_version: str = "tesseract-5"
-    ocr_language: str = "eng"
+    ocr_provider: str = "paddleocr"
+    ocr_model_version: str = "PP-OCRv5_mobile_det+en_PP-OCRv5_mobile_rec"
+    ocr_language: str = "en"
+    ocr_paddle_detection_model: str = "PP-OCRv5_mobile_det"
+    ocr_paddle_recognition_model: str = "en_PP-OCRv5_mobile_rec"
+    ocr_paddle_device: str = "cpu"
+    ocr_tesseract_language: str = "eng"
     ocr_tesseract_config: str = "--oem 1 --psm 6"
     ocr_review_confidence: float = 0.60
     classification_known_threshold: float = 0.50

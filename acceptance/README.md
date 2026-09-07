@@ -1,7 +1,7 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #31 is the
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #33 is the
 verified baseline: 53 functional tests, 3 timing probes and 1 browser journey
 all passed with zero exit codes and no known catalogue gaps.
 
@@ -23,7 +23,8 @@ and sensitive-data controls all have executable runtime coverage.
 
 PP evidence includes page-linked quality metadata and before/after normalized
 images in the run's `preprocessing/` directory. Optional noise reduction ships
-disabled until the OCR stage can provide the required paired recognition comparison.
+disabled pending a paired PaddleOCR recognition benchmark. CR-TC-001 asserts
+the active PaddleOCR provider, exact PP-OCRv5 model pair, confidence and boxes.
 
 The Playwright journey supplies separate browser evidence for registration,
 verification, login, upload, duplicate keep, inert filename rendering,

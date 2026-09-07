@@ -197,7 +197,7 @@
         "test_PP_TC_004_noise_reduction_defaults_disabled"
       ],
       "status": "safe disabled decision",
-      "evidence": "decision record; paired OCR comparison deferred until OCR stage exists"
+      "evidence": "decision record; paired PaddleOCR comparison remains a separate benchmark"
     },
     "CR-TC-001": {
       "pytest": [
@@ -211,7 +211,7 @@
         "5": "page ID, page number, provider, model, method, confidence and word bounding boxes covered",
         "6": "machine-readable OCR result saved as evidence"
       },
-      "evidence": "ocr/CR-TC-001-result.json plus recorded public API responses",
+      "evidence": "ocr/CR-TC-001-result.json plus recorded public API responses asserting PaddleOCR and the exact PP-OCRv5 model pair",
       "claim_limit": "Functional recognition of deterministic printed text only; no general OCR-accuracy claim"
     },
     "CL-TC-001": {

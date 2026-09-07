@@ -38,6 +38,7 @@ services:
       - ${ACCEPTANCE_EVIDENCE_DIR:-./acceptance/evidence}:/evidence
 
   worker:
+    shm_size: "2gb"
     environment:
       APP_ENV: acceptance
       SMTP_HOST: mailpit
@@ -48,6 +49,10 @@ services:
       IDLE_SESSION_MINUTES: "1"
       VERIFICATION_TOKEN_MINUTES: "5"
       PASSWORD_RESET_TOKEN_MINUTES: "1"
+      OCR_PROVIDER: paddleocr
+      OCR_MODEL_VERSION: PP-OCRv5_mobile_det+en_PP-OCRv5_mobile_rec
+      OCR_LANGUAGE: en
+      OCR_PADDLE_DEVICE: cpu
     depends_on:
       mailpit:
         condition: service_healthy

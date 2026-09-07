@@ -17,6 +17,8 @@ pypdf==5.4.0
 Pillow==11.2.1
 PyMuPDF==1.25.5
 opencv-python-headless==4.11.0.86
+paddleocr==3.7.0
+paddlepaddle==3.3.1
 pytesseract==0.3.13
 
 pyotp==2.9.0

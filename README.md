@@ -4,7 +4,7 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance Run #31 is the current evidence baseline:
+GitHub Runtime Acceptance Run #33 is the current evidence baseline:
 
 - **53/53 functional tests passed**
 - **50 exact catalogue IDs covered**
@@ -22,7 +22,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 - PDF/JPG/PNG single and bulk ingestion
 - Immutable MinIO objects, duplicate detection and explicit duplicate keep
 - PDF page splitting, orientation correction, quality assessment and deskew
-- Printed-text OCR with page/word lineage and bounding boxes
+- PP-OCRv5 printed-text OCR with page/word lineage and bounding boxes
 - Seven known document families plus explicit `unknown`
 - Versioned predefined fields for Identity, Utility, Banking and Invoice/Receipt, plus generic Unknown fields, confidence, criticality and `not_found`
 - Classification and field confirmation/correction with audit history
@@ -34,6 +34,14 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 ## Architecture
 
 The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 13 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0008`.
+
+PaddleOCR is the default OCR provider. The worker uses the CPU-oriented
+`PP-OCRv5_mobile_det` and English `en_PP-OCRv5_mobile_rec` models. Page
+orientation and deskew remain in the application's preprocessing stage, so
+Paddle's overlapping orientation/unwarping modules are disabled. Tesseract is
+retained only as an explicit operational fallback by setting
+`OCR_PROVIDER=tesseract`; provider failures never trigger a silent fallback.
+PP-StructureV3 and PP-ChatOCRv4 are not part of this OCR-provider increment.
 
 ## Local configuration
 

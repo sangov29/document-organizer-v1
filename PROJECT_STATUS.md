@@ -1,8 +1,8 @@
 # Build Status — Verified V1 Runtime Baseline
 
-Baseline date: 6 September 2026  
-Verified commit: `d0773b7725817d36d5786d645c95ebef03b86352`  
-Evidence: GitHub Runtime Acceptance Run #31
+Baseline date: 7 September 2026  
+Verified commit: `f04d16516c79ba21bdd9d1b613789264e3084e69`  
+Evidence: GitHub Runtime Acceptance Run #33
 
 ## Current result
 
@@ -13,7 +13,7 @@ Evidence: GitHub Runtime Acceptance Run #31
 - `functional_exit=0`, `timing_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 
-Run #31 also closes the two defects found by Run #30:
+Run #31 closed the two defects found by Run #30:
 
 - `EX-TC-004`: inferred `issuing_authority` retains the complete value and remains `trust_state=inferred`.
 - `PR-TC-002`: every returned sensitive textual-field `visual_region_id` resolves to exactly one serialized `sensitive_regions` entry.
@@ -38,7 +38,7 @@ Run #31 also closes the two defects found by Run #30:
 - Independent bulk-item failure boundaries
 - Multi-page PDF splitting and page persistence
 - Orientation correction, quality/blur/resolution assessment and deskew routing
-- Printed-text OCR with page, word and bounding-box lineage
+- PP-OCRv5 printed-text OCR with page, word and bounding-box lineage; Tesseract remains an explicit fallback provider
 - Seven known classification families plus explicit `unknown`
 - Versioned predefined extraction for Identity, Utility, Banking and Invoice/Receipt, plus generic Unknown extraction with confidence, criticality and explicit `not_found`
 - Classification/field review, correction, confirmation and history preservation
@@ -52,7 +52,7 @@ Run #31 also closes the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Run #31 proves deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Run #33 proves deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
