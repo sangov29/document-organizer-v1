@@ -53,6 +53,8 @@ services:
       OCR_MODEL_VERSION: PP-OCRv5_mobile_det+en_PP-OCRv5_mobile_rec
       OCR_LANGUAGE: en
       OCR_PADDLE_DEVICE: cpu
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
     depends_on:
       mailpit:
         condition: service_healthy

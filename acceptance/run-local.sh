@@ -110,7 +110,7 @@ PY
 set +e
 "${COMPOSE[@]}" exec -T backend \
   env PYTHONPATH=/app pytest -c /acceptance/pytest.ini /acceptance/tests \
-  --junitxml=/evidence/junit-functional.xml -q 2>&1 | tee "$EVIDENCE_DIR/pytest-output.txt"
+  --junitxml=/evidence/junit-functional.xml -q -x 2>&1 | tee "$EVIDENCE_DIR/pytest-output.txt"
 FUNCTIONAL_EXIT=${PIPESTATUS[0]}
 
 "${COMPOSE[@]}" exec -T backend \

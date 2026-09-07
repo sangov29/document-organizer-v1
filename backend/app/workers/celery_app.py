@@ -1,4 +1,5 @@
 from io import BytesIO
+import logging
 import uuid
 from urllib.parse import urlencode
 from celery import Celery
@@ -30,6 +31,7 @@ from app.services.analysis import (
 
 celery = Celery("document_organizer", broker=settings.redis_url, backend=settings.redis_url)
 celery.conf.task_track_started = True
+logger = logging.getLogger(__name__)
 
 
 @celery.task(name="auth.send_verification_email")
@@ -362,6 +364,13 @@ def bootstrap_pipeline(self, document_id: str):
             "needs_review": review_required,
         }
     except Exception as exc:
+        logger.exception(
+            "Document pipeline failed at stage=%s document_id=%s correlation_id=%s: %s",
+            active_stage,
+            document_id,
+            correlation_id,
+            exc,
+        )
         db.rollback()
         document = db.get(Document, document_uuid) if document_uuid else None
         if document:

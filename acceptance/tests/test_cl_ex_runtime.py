@@ -5,6 +5,9 @@ import time
 
 import pytest
 
+from app.db.session import SessionLocal
+from app.models import Document, ProcessingJob
+from app.models.enums import ProcessingStatus
 from conftest import EVIDENCE_DIR
 from fixtures import document_png
 
@@ -26,6 +29,21 @@ def _upload_and_wait(api, token: str, run_id: str, label: str, lines: list[str])
         if response.status_code == 200:
             return response.json()
         assert response.status_code == 202
+        db = SessionLocal()
+        try:
+            document = db.get(Document, document_id)
+            if document and document.status == ProcessingStatus.FAILED:
+                failed_job = db.query(ProcessingJob).filter(
+                    ProcessingJob.document_id == document_id,
+                    ProcessingJob.status == ProcessingStatus.FAILED,
+                ).order_by(ProcessingJob.created_at.desc()).first()
+                error_code = failed_job.error_code if failed_job else "unknown"
+                stage = failed_job.stage if failed_job else "unknown"
+                raise AssertionError(
+                    f"Analysis failed for {label} at {stage}: {error_code}"
+                )
+        finally:
+            db.close()
         time.sleep(0.5)
     raise AssertionError(f"Analysis did not complete for {label}")
 
