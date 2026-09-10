@@ -87,6 +87,12 @@ def mask_ocr_blocks(blocks: list[dict]) -> list[dict]:
         # the first signature region selected for reveal provenance.
         if is_signature_label or in_signature_line:
             copy["text"] = "[CONCEALED]"
+        elif re.match(r"(?i)^\s*(?:account\s+number|iban)\s*:", text):
+            copy["text"] = re.sub(
+                r"(?i)^(\s*(?:account\s+number|iban)\s*:\s*)(.+?)\s*$",
+                lambda match: match.group(1) + (mask_sensitive_value(match.group(2).strip()) or ""),
+                text,
+            )
         elif re.fullmatch(r"\d{8,}", re.sub(r"[\s-]", "", text)):
             copy["text"] = mask_sensitive_value(text)
         masked.append(copy)
