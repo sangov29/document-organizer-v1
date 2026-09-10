@@ -77,11 +77,15 @@ def mask_ocr_blocks(blocks: list[dict]) -> list[dict]:
         copy = {**block, "bbox": dict(block["bbox"])}
         text = str(copy.get("text", ""))
         box = copy["bbox"]
+        is_signature_label = _normalized(text).startswith("signature")
         in_signature_line = bool(signature_box) and (
             box["y"] < signature_box["y"] + signature_box["height"]
             and box["y"] + box["height"] > signature_box["y"]
         )
-        if in_signature_line:
+        # OCR engines may emit repeated detections of the same printed line.
+        # Conceal every signature-labelled block, not only blocks overlapping
+        # the first signature region selected for reveal provenance.
+        if is_signature_label or in_signature_line:
             copy["text"] = "[CONCEALED]"
         elif re.fullmatch(r"\d{8,}", re.sub(r"[\s-]", "", text)):
             copy["text"] = mask_sensitive_value(text)
