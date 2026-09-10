@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from io import BytesIO
+import sys
+from types import SimpleNamespace
 
 import pytest
 from PIL import Image
@@ -29,6 +31,25 @@ class _Pipeline:
         assert isinstance(image, ocr.np.ndarray)
         assert image.shape == (40, 80, 3)
         return [_Result()]
+
+
+def test_paddle_pipeline_disables_broken_onednn_path(monkeypatch):
+    captured = {}
+
+    def fake_paddle_ocr(**kwargs):
+        captured.update(kwargs)
+        return _Pipeline()
+
+    monkeypatch.setitem(sys.modules, "paddleocr", SimpleNamespace(PaddleOCR=fake_paddle_ocr))
+    ocr._paddle_pipeline.cache_clear()
+    try:
+        pipeline = ocr._paddle_pipeline()
+    finally:
+        ocr._paddle_pipeline.cache_clear()
+
+    assert isinstance(pipeline, _Pipeline)
+    assert captured["enable_mkldnn"] is False
+    assert captured["cpu_threads"] == 1
 
 
 def test_paddle_result_is_normalized_to_existing_ocr_contract(monkeypatch):

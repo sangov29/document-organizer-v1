@@ -80,6 +80,8 @@ def _paddle_pipeline():
         use_doc_unwarping=False,
         use_textline_orientation=False,
         device=settings.ocr_paddle_device,
+        enable_mkldnn=settings.ocr_paddle_enable_mkldnn,
+        cpu_threads=settings.ocr_paddle_cpu_threads,
     )
 
 

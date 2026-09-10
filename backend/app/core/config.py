@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     ocr_paddle_detection_model: str = "PP-OCRv5_mobile_det"
     ocr_paddle_recognition_model: str = "en_PP-OCRv5_mobile_rec"
     ocr_paddle_device: str = "cpu"
+    ocr_paddle_enable_mkldnn: bool = False
+    ocr_paddle_cpu_threads: int = 1
     ocr_tesseract_language: str = "eng"
     ocr_tesseract_config: str = "--oem 1 --psm 6"
     ocr_review_confidence: float = 0.60
