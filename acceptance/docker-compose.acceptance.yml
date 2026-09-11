@@ -57,9 +57,14 @@ services:
       OCR_EVAL_WER_MAX: ${OCR_EVAL_WER_MAX:-0.35}
       OMP_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
+      ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER: /evidence
     depends_on:
       mailpit:
         condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./acceptance:/acceptance:ro
+      - ${ACCEPTANCE_EVIDENCE_DIR:-./acceptance/evidence}:/evidence
 
   ui-tests:
     profiles: ["acceptance-ui"]

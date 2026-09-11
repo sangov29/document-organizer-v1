@@ -12,8 +12,8 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   const password = `UI-Acceptance-${suffix}!9x`;
 
   await page.goto('/register');
-  await page.getByPlaceholder('Email').fill(email);
-  await page.getByPlaceholder('Password (12+ chars)').fill(password);
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password').fill(password);
   await page.getByRole('button', {name: 'Register'}).click();
   await expect(page.getByRole('status')).toContainText('verification instructions');
 
@@ -32,8 +32,8 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await expect(page.getByText('Email verified. You can now log in.')).toBeVisible();
 
   await page.goto('/login');
-  await page.getByPlaceholder('Email').fill(email);
-  await page.getByPlaceholder('Password', {exact: true}).fill(password);
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password', {exact: true}).fill(password);
   await page.getByRole('button', {name: 'Login'}).click();
   await expect(page.getByRole('heading', {name: 'Documents', exact: true})).toBeVisible();
 
