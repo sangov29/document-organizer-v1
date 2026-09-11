@@ -80,7 +80,7 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.getByRole('link', {name: 'ui-proof-copy.png'}).click();
   await expect(page.getByTestId('document-detail')).toContainText(/kept duplicate/i);
   await expect(page.getByText('Canonical document')).toBeVisible();
-  await expect(page.getByTestId('classification')).toContainText('utility_bill');
+  await expect(page.getByTestId('classification')).toContainText('Utility Bill');
   await page.getByRole('button', {name:'Download JSON'}).click();
   await expect(page.getByRole('status')).toContainText('JSON export downloaded.');
   await expect(page.getByTestId('field-amount_due')).toContainText('15,000');
