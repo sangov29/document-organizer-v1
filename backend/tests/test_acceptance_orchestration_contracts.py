@@ -22,3 +22,5 @@ def test_ui_journey_uses_accessible_labels_not_visual_placeholder_copy():
     assert "getByLabel('Password')" in journey
     assert "getByPlaceholder('Email')" not in journey
     assert "getByPlaceholder('Password (12+ chars)')" not in journey
+    assert "getByText('Canonical document')" in journey
+    assert "getByText('Duplicate of')" not in journey

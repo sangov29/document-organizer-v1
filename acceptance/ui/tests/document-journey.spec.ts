@@ -79,7 +79,7 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.route(/\/api\/v1\/documents\/[^/]+\/export\.json$/, async route => route.fulfill({headers:{'Content-Type':'application/json'}, body:JSON.stringify({export_schema_version:'export-v0.1', sensitive_export_policy:'masked_no_bulk_reveal_v1'})}));
   await page.getByRole('link', {name: 'ui-proof-copy.png'}).click();
   await expect(page.getByTestId('document-detail')).toContainText(/kept duplicate/i);
-  await expect(page.getByText('Duplicate of')).toBeVisible();
+  await expect(page.getByText('Canonical document')).toBeVisible();
   await expect(page.getByTestId('classification')).toContainText('utility_bill');
   await page.getByRole('button', {name:'Download JSON'}).click();
   await expect(page.getByRole('status')).toContainText('JSON export downloaded.');
