@@ -1,0 +1,75 @@
+{
+  "version": "ocr-eval-v0.1",
+  "description": "Deterministic, labelled, document-like English seed corpus for PP-OCRv5 regression measurement. This is not a production accuracy claim.",
+  "cases": [
+    {
+      "id": "utility-clean",
+      "family": "utility",
+      "lines": [
+        "GREENFIELD ELECTRICITY SERVICE",
+        "UTILITY BILL",
+        "Account Holder: Alex Morgan",
+        "Account Number: AC 998877",
+        "Billing Period: August 2026",
+        "Amount Due: 200.00",
+        "Due Date: 15 September 2026"
+      ]
+    },
+    {
+      "id": "invoice-compact",
+      "family": "invoice",
+      "font_size": 31,
+      "lines": [
+        "NORTHSTAR OFFICE SUPPLIES",
+        "TAX INVOICE",
+        "Invoice Number: INV-2026-1042",
+        "Invoice Date: 05 September 2026",
+        "Subtotal: 1,250.00",
+        "Tax: 225.00",
+        "Total Amount: 1,475.00"
+      ]
+    },
+    {
+      "id": "identity-spaced",
+      "family": "identity",
+      "line_spacing": 78,
+      "lines": [
+        "REPUBLIC OF TESTLAND",
+        "IDENTITY DOCUMENT",
+        "Full Name: Jordan Example",
+        "Document Number: X1234567",
+        "Date of Birth: 12 May 1990",
+        "Nationality: Testland",
+        "Expiry Date: 01 January 2030"
+      ]
+    },
+    {
+      "id": "banking-soft-contrast",
+      "family": "banking",
+      "background": 238,
+      "foreground": 55,
+      "lines": [
+        "EXAMPLE COMMUNITY BANK",
+        "ACCOUNT STATEMENT",
+        "Account Holder: Casey Taylor",
+        "Account Number: 1122 3344 5566",
+        "Statement Date: 31 August 2026",
+        "Opening Balance: 8,450.25",
+        "Closing Balance: 9,125.70"
+      ]
+    },
+    {
+      "id": "letter-mixed-case",
+      "family": "letter",
+      "lines": [
+        "Riverside Community Association",
+        "Membership Confirmation Letter",
+        "Dear Morgan Lee,",
+        "Reference: RCA-2026-0911",
+        "Your annual membership is confirmed.",
+        "Effective Date: 11 September 2026",
+        "Kind regards, Membership Services"
+      ]
+    }
+  ]
+}

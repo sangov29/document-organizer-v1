@@ -53,6 +53,8 @@ services:
       OCR_MODEL_VERSION: PP-OCRv5_mobile_det+en_PP-OCRv5_mobile_rec
       OCR_LANGUAGE: en
       OCR_PADDLE_DEVICE: cpu
+      OCR_EVAL_CER_MAX: ${OCR_EVAL_CER_MAX:-0.20}
+      OCR_EVAL_WER_MAX: ${OCR_EVAL_WER_MAX:-0.35}
       OMP_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
     depends_on:

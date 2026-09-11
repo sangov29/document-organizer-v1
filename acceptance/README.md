@@ -26,6 +26,16 @@ images in the run's `preprocessing/` directory. Optional noise reduction ships
 disabled pending a paired PaddleOCR recognition benchmark. CR-TC-001 asserts
 the active PaddleOCR provider, exact PP-OCRv5 model pair, confidence and boxes.
 
+## PaddleOCR quality evidence
+
+`tools/ocr_evaluation.py` measures PP-OCRv5 against the versioned, labelled
+seed corpus in `ocr-eval/corpus.json`. It publishes per-case and aggregate
+character error rate (CER), word error rate (WER), confidence and latency as
+`ocr-evaluation.json`, plus independent JUnit output. Default regression limits
+are CER <= 0.20 and WER <= 0.35 for every case and the aggregate. The corpus is
+deterministic and document-like; it is an initial regression gate, not a claim
+of production or population-wide OCR accuracy.
+
 The Playwright journey supplies separate browser evidence for registration,
 verification, login, upload, duplicate keep, inert filename rendering,
 document analysis/review and logout. Functional API, timing and UI results
@@ -79,7 +89,8 @@ The script:
 5. waits for API and Mailpit health;
 6. runs functional pytest acceptance and writes JUnit XML;
 7. runs the separate timing probe and writes timing JSON + timing JUnit XML;
-8. runs the browser-level frontend journey and captures UI JUnit/screenshots;
-9. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
+8. runs the separate PaddleOCR labelled-corpus evaluation;
+9. runs the browser-level frontend journey and captures UI JUnit/screenshots;
+10. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
 
 Evidence is written under `acceptance/evidence/<run-id>/`.

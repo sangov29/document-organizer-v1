@@ -117,6 +117,11 @@ FUNCTIONAL_EXIT=${PIPESTATUS[0]}
   python /acceptance/tools/timing_probe.py 2>&1 | tee "$EVIDENCE_DIR/timing-output.txt"
 TIMING_EXIT=${PIPESTATUS[0]}
 
+"${COMPOSE[@]}" exec -T worker \
+  env PYTHONPATH=/app python /acceptance/tools/ocr_evaluation.py \
+  2>&1 | tee "$EVIDENCE_DIR/ocr-evaluation-output.txt"
+OCR_EVAL_EXIT=${PIPESTATUS[0]}
+
 python3 - <<'PY'
 import time, urllib.request
 url = "http://localhost:3000"
@@ -144,10 +149,13 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "run_id": "$RUN_ID",
   "functional_exit": $FUNCTIONAL_EXIT,
   "timing_exit": $TIMING_EXIT,
+  "ocr_evaluation_exit": $OCR_EVAL_EXIT,
   "ui_exit": $UI_EXIT,
   "functional_junit": "junit-functional.xml",
   "timing_json": "timing.json",
   "timing_junit": "junit-timing.xml",
+  "ocr_evaluation_json": "ocr-evaluation.json",
+  "ocr_evaluation_junit": "junit-ocr-evaluation.xml",
   "ui_junit": "junit-ui.xml",
   "known_catalogue_gaps": [],
   "mail_scope": "local Mailpit queue/token/sink lifecycle only; no external provider claim"
@@ -156,11 +164,12 @@ JSON
 
 printf '\nFunctional acceptance exit: %s\n' "$FUNCTIONAL_EXIT"
 printf 'Timing evidence exit: %s\n' "$TIMING_EXIT"
+printf 'OCR evaluation exit: %s\n' "$OCR_EVAL_EXIT"
 printf 'UI acceptance exit: %s\n' "$UI_EXIT"
 printf 'Evidence directory: %s\n' "$EVIDENCE_REL"
 
 # Timing is intentionally separate, but the one-command harness is considered
 # unsuccessful if either evidence stream fails its own acceptance rule.
-if [[ $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $UI_EXIT -ne 0 ]]; then
+if [[ $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 ]]; then
   exit 1
 fi
