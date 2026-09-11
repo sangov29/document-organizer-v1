@@ -1,5 +1,6 @@
 'use client';
 import { FormEvent, useState } from 'react';
+import Link from 'next/link';
 import { api } from '../../lib/api';
 export default function ResetPassword() {
   const [message, setMessage] = useState('');
@@ -10,5 +11,5 @@ export default function ResetPassword() {
     try { const r = await api('/auth/password-reset/confirm', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token, new_password:data.get('password')})}); setMessage(r.message); }
     catch (e) { setMessage(e instanceof Error ? e.message : 'Reset failed'); }
   }
-  return <><h1>Choose a new password</h1><form onSubmit={submit}><input name="password" type="password" minLength={12} placeholder="New password (12+ chars)" required/><button>Reset password</button></form><p>{message}</p></>;
+  return <section className="auth-single"><div className="auth-card"><p className="panel-kicker">Account recovery</p><h1>Choose a new password</h1><p className="muted">Set a strong password that you do not use elsewhere.</p><form onSubmit={submit}><label>New password<input name="password" type="password" minLength={12} placeholder="At least 12 characters" autoComplete="new-password" required/></label><p className="field-help">Your existing sessions will be revoked after the password changes.</p><button>Reset password</button></form><p role="status" className={message ? 'form-message' : ''}>{message}</p><p className="auth-switch"><Link href="/login">← Back to login</Link></p></div></section>;
 }

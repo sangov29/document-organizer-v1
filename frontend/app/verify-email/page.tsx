@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import Link from 'next/link';
 
 export default function VerifyEmail() {
   const [message, setMessage] = useState('Verifying…');
@@ -16,5 +17,5 @@ export default function VerifyEmail() {
       .catch((e) => setMessage(e instanceof Error ? e.message : 'Verification failed.'));
   }, []);
 
-  return <><h1>Email verification</h1><p role="status">{message}</p></>;
+  return <section className="auth-single"><div className="auth-card status-card"><div className="status-icon">✓</div><p className="panel-kicker">Identity check</p><h1>Email verification</h1><p role="status" className="form-message">{message}</p><Link className="button-link" href="/login">Continue to login</Link></div></section>;
 }

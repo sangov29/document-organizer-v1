@@ -125,41 +125,40 @@ export default function DocumentDetail() {
     const url = URL.createObjectURL(await response.blob()); const a = window.document.createElement('a'); a.href = url; a.download = `document-${params.id}.json`; a.click(); URL.revokeObjectURL(url); setMessage('JSON export downloaded.');
   }
 
-  return <><p><Link href="/documents">← Back to documents</Link></p><h1>Document details</h1>
-    <p role="status">{message}</p>
-    {document && <div className="card" data-testid="document-detail">
-      <h2>{document.original_filename}</h2>
-      <p><button type="button" onClick={downloadJson}>Download JSON</button></p>
-      {document.duplicate_of_document_id && <p><strong>Kept duplicate</strong></p>}
-      <dl><dt>Status</dt><dd>{document.status}</dd><dt>Type</dt><dd>{document.mime_type}</dd><dt>Size</dt><dd>{document.size_bytes} bytes</dd><dt>Uploaded</dt><dd>{new Date(document.uploaded_at).toLocaleString()}</dd><dt>SHA-256</dt><dd className="hash">{document.sha256}</dd>{document.duplicate_of_document_id && <><dt>Duplicate of</dt><dd className="hash">{document.duplicate_of_document_id}</dd></>}</dl>
+  const formatStatus = (value:string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+  const formatSize = (bytes:number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+  return <div className="detail-page"><Link className="back-link" href="/documents">← Back to documents</Link>
+    <div className="page-heading detail-heading"><div><p className="eyebrow">Review workspace</p><h1>Document details</h1><p className="muted">Inspect classification, verify extracted fields and trace every result.</p></div>{document && <button type="button" className="secondary" onClick={downloadJson}>Download JSON</button>}</div>
+    {message && <p role="status" className="notice">{message}</p>}
+    {document && <div className="document-summary" data-testid="document-detail">
+      <div className="summary-title"><span className="file-symbol large">DOC</span><div><h2>{document.original_filename}</h2><div className="summary-chips"><span className={`status status-${document.status}`}>{formatStatus(document.status)}</span>{document.duplicate_of_document_id && <span className="status">Kept duplicate</span>}</div></div></div>
+      <dl className="metadata-grid"><div><dt>File type</dt><dd>{document.mime_type}</dd></div><div><dt>File size</dt><dd>{formatSize(document.size_bytes)}</dd></div><div><dt>Uploaded</dt><dd>{new Date(document.uploaded_at).toLocaleString()}</dd></div><div className="wide"><dt>SHA-256 fingerprint</dt><dd className="hash">{document.sha256}</dd></div>{document.duplicate_of_document_id && <div className="wide"><dt>Canonical document</dt><dd className="hash">{document.duplicate_of_document_id}</dd></div>}</dl>
     </div>}
     {analysis && <section aria-labelledby="analysis-heading">
-      <h2 id="analysis-heading">Document analysis</h2>
-      <div className="card" data-testid="classification">
-        <h3>Classification</h3>
-        <p><strong>{analysis.classification.family}</strong> · {Math.round(analysis.classification.confidence * 100)}% confidence</p>
+      <div className="section-heading analysis-title"><div><p className="eyebrow">AI results</p><h2 id="analysis-heading">Document analysis</h2></div><span className="analysis-count">{analysis.fields.length} fields found</span></div>
+      <div className="classification-card" data-testid="classification">
+        <div><p className="panel-kicker">Classification</p><h3>{formatStatus(analysis.classification.family)}</h3><p className="muted">{analysis.classification.review_required ? 'Review required before confirming fields' : 'Ready for field review'}</p></div>
+        <div className="confidence"><strong>{Math.round(analysis.classification.confidence * 100)}%</strong><span>confidence</span></div>
         <details><summary>Classification provenance</summary><p>{analysis.classification.provider} · {analysis.classification.model_version} · {analysis.classification.method}</p></details>
-        {analysis.classification.review_required && <div role="alert"><p>This classification is ambiguous and must be reviewed before fields can be approved.</p><button type="button" onClick={confirmClassification}>Confirm {analysis.classification.family}</button></div>}
+        {analysis.classification.review_required && <div className="review-alert" role="alert"><p>This classification is ambiguous and must be reviewed before fields can be approved.</p><button type="button" onClick={confirmClassification}>Confirm {analysis.classification.family}</button></div>}
       </div>
-      <h3>Extracted fields</h3>
-      {analysis.fields.map(field => <article className="card" data-testid={`field-${field.field_name}`} key={field.id}>
-        <h4>{field.field_name.replaceAll('_', ' ')}</h4>
-        <p><strong>{revealedFields[field.id] ?? field.value ?? 'Not found'}</strong>{field.masked && !revealedFields[field.id] && ' (masked)'}</p>
-        <p>{field.trust_state} · {field.criticality}{field.confidence == null ? '' : ` · ${Math.round(field.confidence * 100)}% confidence`}</p>
-        {field.sensitive && <p><button type="button" onClick={() => revealField(field)}>Reveal {field.field_name.replaceAll('_', ' ')}</button></p>}
-        <label>Correct {field.field_name}<input aria-label={`Correct ${field.field_name}`} placeholder={field.sensitive ? 'Enter replacement value' : ''} value={drafts[field.id] ?? (field.sensitive ? '' : field.value ?? '')} onChange={event => setDrafts({...drafts, [field.id]:event.target.value})}/></label>
-        <button type="button" disabled={analysis.classification.review_required} onClick={() => reviewField(field, 'correct')}>Save correction</button>{' '}
-        <button type="button" disabled={analysis.classification.review_required} onClick={() => reviewField(field, 'confirm')}>Confirm</button>
+      <div className="section-heading fields-heading"><div><p className="eyebrow">Structured data</p><h3>Extracted fields</h3></div><p className="muted">Confirm accurate values or save a correction.</p></div>
+      <div className="field-list">{analysis.fields.map(field => <article className="field-card" data-testid={`field-${field.field_name}`} key={field.id}>
+        <div className="field-header"><div><h4>{formatStatus(field.field_name)}</h4><div className="summary-chips"><span className={`trust trust-${field.trust_state}`}>{formatStatus(field.trust_state)}</span><span className="trust">{formatStatus(field.criticality)}</span>{field.confidence != null && <span className="trust">{Math.round(field.confidence * 100)}% confidence</span>}</div></div>{field.sensitive && <span className="privacy-chip">Sensitive</span>}</div>
+        <p className={`field-value ${field.masked && !revealedFields[field.id] ? 'masked-value' : ''}`}><strong>{revealedFields[field.id] ?? field.value ?? 'Not found'}</strong>{field.masked && !revealedFields[field.id] && ' (masked)'}</p>
+        {field.sensitive && <button className="secondary compact" type="button" onClick={() => revealField(field)}>Reveal {field.field_name.replaceAll('_', ' ')}</button>}
+        <div className="review-controls"><label>Correct {field.field_name}<input aria-label={`Correct ${field.field_name}`} placeholder={field.sensitive ? 'Enter replacement value' : ''} value={drafts[field.id] ?? (field.sensitive ? '' : field.value ?? '')} onChange={event => setDrafts({...drafts, [field.id]:event.target.value})}/></label><div><button type="button" disabled={analysis.classification.review_required} onClick={() => reviewField(field, 'correct')}>Save correction</button><button className="secondary" type="button" disabled={analysis.classification.review_required} onClick={() => reviewField(field, 'confirm')}>Confirm</button></div></div>
         <details><summary>Provenance</summary><p>{field.provenance.provider} · {field.provenance.model_version} · {field.provenance.method}</p><p className="hash">Page: {field.provenance.source_page_id ?? 'document level'} · Region: {field.provenance.visual_region_id ?? 'not recorded'}</p></details>
-        {field.corrections.length > 0 && <div><h5>Correction history</h5><ul>{field.corrections.map(correction => <li key={correction.id}>{correction.prior_value ?? 'Not found'} → {correction.corrected_value} · {new Date(correction.created_at).toLocaleString()}</li>)}</ul></div>}
-      </article>)}
-      {analysis.sensitive_regions.length > 0 && <div data-testid="sensitive-regions"><h3>Sensitive regions</h3>{analysis.sensitive_regions.map(region => <article className="card" data-testid={`region-${region.region_type}`} key={region.id}>
-        <h4>{region.region_type.replaceAll('_', ' ')}</h4>
+        {field.corrections.length > 0 && <div className="history"><h5>Correction history</h5><ul>{field.corrections.map(correction => <li key={correction.id}>{correction.prior_value ?? 'Not found'} → {correction.corrected_value} · {new Date(correction.created_at).toLocaleString()}</li>)}</ul></div>}
+      </article>)}</div>
+      {analysis.sensitive_regions.length > 0 && <div className="sensitive-section" data-testid="sensitive-regions"><div className="section-heading"><div><p className="eyebrow">Protected content</p><h3>Sensitive regions</h3></div><p className="muted">Reveals are temporary and audited.</p></div><div className="region-grid">{analysis.sensitive_regions.map(region => <article className="region-card" data-testid={`region-${region.region_type}`} key={region.id}>
+        <div className="field-header"><h4>{formatStatus(region.region_type)}</h4><span className="privacy-chip">Concealed</span></div>
         {revealedRegions[region.id]
           ? <img src={revealedRegions[region.id]} alt={`Temporarily revealed ${region.region_type}`} />
-          : <p className="concealed">Sensitive region concealed</p>}
+          : <div className="concealed"><span>••••••••</span><small>Sensitive region concealed</small></div>}
         <button type="button" onClick={() => revealRegion(region)}>Reveal {region.region_type.replaceAll('_', ' ')}</button>
-      </article>)}</div>}
+      </article>)}</div></div>}
     </section>}
-  </>;
+  </div>;
 }
