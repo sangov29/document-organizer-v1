@@ -1,0 +1,24 @@
+{
+  "schema_version": "corpus-manifest-v0.1",
+  "corpus_id": "replace-with-private-corpus-id",
+  "label_review": "two-reviewer-resolved",
+  "documents": [
+    {
+      "id": "sample-001",
+      "source_path": "private/sample-001.pdf",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "consent_reference": "internal-approval-reference-without-personal-data",
+      "expected_family": "unknown",
+      "out_of_family_kind": "certificate",
+      "fields": [
+        {
+          "field_name": "recipient_name",
+          "value": "REDACTED EXAMPLE",
+          "page_number": 1,
+          "bbox": {"x": 100, "y": 200, "width": 300, "height": 40},
+          "sensitive": true
+        }
+      ]
+    }
+  ]
+}

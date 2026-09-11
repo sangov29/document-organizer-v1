@@ -7,3 +7,6 @@ node_modules/
 .next/
 coverage/
 .DS_Store
+evaluation/private/
+evaluation/corpus-manifest.json
+evaluation/labels/
