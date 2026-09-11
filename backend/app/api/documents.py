@@ -10,7 +10,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
@@ -23,7 +23,7 @@ from app.models import (
 )
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
-    BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
+    AuditEventResponse, BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     ClassificationReviewRequest,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse, DocumentSearchResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
@@ -45,6 +45,14 @@ def doc_response(doc: Document) -> DocumentResponse:
         size_bytes=doc.size_bytes, sha256=doc.sha256, status=doc.status.value,
         duplicate_of_document_id=(str(doc.duplicate_of_document_id) if doc.duplicate_of_document_id else None),
         uploaded_at=doc.uploaded_at,
+    )
+
+
+def audit_response(event: AuditEvent) -> AuditEventResponse:
+    return AuditEventResponse(
+        id=str(event.id), event_type=event.event_type.value,
+        target_type=event.target_type, target_id=event.target_id,
+        metadata=event.metadata_json, created_at=event.created_at,
     )
 
 
@@ -250,6 +258,22 @@ def search_documents(
     return DocumentSearchResponse(items=items, total=total, page=page, page_size=page_size)
 
 
+@router.get("/audit", response_model=list[AuditEventResponse])
+def list_document_audit_events(
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the owner's immutable document activity, including deletions."""
+    events = db.scalars(
+        select(AuditEvent).where(
+            AuditEvent.user_id == user.id,
+            AuditEvent.target_type.in_(("document", "extracted_field", "visual_region")),
+        ).order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc()).limit(limit)
+    ).all()
+    return [audit_response(event) for event in events]
+
+
 @router.get("/{document_id}", response_model=DocumentResponse)
 def get_document(
     document_id: uuid.UUID,
@@ -264,6 +288,78 @@ def get_document(
         # the endpoint cannot be used to enumerate another user's documents.
         raise HTTPException(status_code=404, detail="Document not found")
     return doc_response(document)
+
+
+@router.get("/{document_id}/audit", response_model=list[AuditEventResponse])
+def get_document_audit_events(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = db.scalar(
+        select(Document).where(Document.id == document_id, Document.user_id == user.id)
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    field_ids = [str(value) for value in db.scalars(
+        select(ExtractedField.id).where(ExtractedField.document_id == document.id)
+    ).all()]
+    region_ids = [str(value) for value in db.scalars(
+        select(VisualRegion.id).join(Page, Page.id == VisualRegion.page_id)
+        .where(Page.document_id == document.id)
+    ).all()]
+    target_ids = [str(document.id), *field_ids, *region_ids]
+    events = db.scalars(
+        select(AuditEvent).where(
+            AuditEvent.user_id == user.id,
+            AuditEvent.target_id.in_(target_ids),
+        ).order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+    ).all()
+    return [audit_response(event) for event in events]
+
+
+@router.delete("/{document_id}", status_code=204)
+def delete_document(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permanently remove owner document data while retaining a minimal audit fact."""
+    document = db.scalar(
+        select(Document).where(Document.id == document_id, Document.user_id == user.id)
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    pages = db.scalars(select(Page).where(Page.document_id == document.id)).all()
+    page_ids = [page.id for page in pages]
+    normalized_keys = db.scalars(
+        select(PreprocessingResult.normalized_object_key)
+        .where(PreprocessingResult.page_id.in_(page_ids))
+    ).all() if page_ids else []
+    object_keys = [
+        document.object_key,
+        *(page.derived_object_key for page in pages if page.derived_object_key),
+        *normalized_keys,
+    ]
+    try:
+        storage.delete_many(object_keys)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Document storage cleanup could not be completed") from exc
+
+    field_ids = db.scalars(
+        select(ExtractedField.id).where(ExtractedField.document_id == document.id)
+    ).all()
+    if field_ids:
+        db.execute(delete(Correction).where(Correction.extracted_field_id.in_(field_ids)))
+    db.add(AuditEvent(
+        user_id=user.id, event_type=AuditEventType.DELETION,
+        target_type="document", target_id=str(document.id),
+        metadata_json={"action": "permanent_delete", "object_count": len(set(object_keys))},
+    ))
+    db.delete(document)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/{document_id}/ocr", response_model=DocumentOCRResponse)

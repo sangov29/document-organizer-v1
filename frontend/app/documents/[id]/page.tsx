@@ -39,6 +39,8 @@ type Analysis = {
   sensitive_regions:SensitiveRegion[];
 };
 
+type AuditEvent = {id:string; event_type:string; target_type:string; target_id?:string|null; metadata:Record<string,unknown>; created_at:string};
+
 export default function DocumentDetail() {
   const params = useParams<{id:string}>();
   const [document, setDocument] = useState<Doc|null>(null);
@@ -46,6 +48,7 @@ export default function DocumentDetail() {
   const [drafts, setDrafts] = useState<Record<string,string>>({});
   const [revealedFields, setRevealedFields] = useState<Record<string,string>>({});
   const [revealedRegions, setRevealedRegions] = useState<Record<string,string>>({});
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [message, setMessage] = useState('Loading document…');
 
   useEffect(() => {
@@ -61,6 +64,8 @@ export default function DocumentDetail() {
         const analysisResponse = await fetch(`${API}/api/v1/documents/${params.id}/analysis`, {headers:{Authorization:`Bearer ${token}`}});
         if (analysisResponse.ok) {
           setAnalysis(await analysisResponse.json());
+          const auditResponse = await fetch(`${API}/api/v1/documents/${params.id}/audit`, {headers:{Authorization:`Bearer ${token}`}});
+          if (auditResponse.ok) setAuditEvents(await auditResponse.json());
           setMessage('');
           return;
         }
@@ -125,11 +130,20 @@ export default function DocumentDetail() {
     const url = URL.createObjectURL(await response.blob()); const a = window.document.createElement('a'); a.href = url; a.download = `document-${params.id}.json`; a.click(); URL.revokeObjectURL(url); setMessage('JSON export downloaded.');
   }
 
+  async function deleteDocument() {
+    if (!window.confirm('Permanently delete this document and its processed data? This cannot be undone.')) return;
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}`, {method:'DELETE', headers:{Authorization:`Bearer ${token}`}});
+    if (response.status === 204) { window.location.href = '/documents?deleted=1'; return; }
+    setMessage(response.status === 503 ? 'Storage cleanup is temporarily unavailable. The document was not deleted; please retry.' : 'Document could not be deleted.');
+  }
+
   const formatStatus = (value:string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
   const formatSize = (bytes:number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
   return <div className="detail-page"><Link className="back-link" href="/documents">← Back to documents</Link>
-    <div className="page-heading detail-heading"><div><p className="eyebrow">Review workspace</p><h1>Document details</h1><p className="muted">Inspect classification, verify extracted fields and trace every result.</p></div>{document && <button type="button" className="secondary" onClick={downloadJson}>Download JSON</button>}</div>
+    <div className="page-heading detail-heading"><div><p className="eyebrow">Review workspace</p><h1>Document details</h1><p className="muted">Inspect classification, verify extracted fields and trace every result.</p></div>{document && <div className="heading-actions"><button type="button" className="secondary" onClick={downloadJson}>Download JSON</button><button type="button" className="danger" onClick={deleteDocument}>Delete document</button></div>}</div>
     {message && <p role="status" className="notice">{message}</p>}
     {document && <div className="document-summary" data-testid="document-detail">
       <div className="summary-title"><span className="file-symbol large">DOC</span><div><h2>{document.original_filename}</h2><div className="summary-chips"><span className={`status status-${document.status}`}>{formatStatus(document.status)}</span>{document.duplicate_of_document_id && <span className="status">Kept duplicate</span>}</div></div></div>
@@ -159,6 +173,7 @@ export default function DocumentDetail() {
           : <div className="concealed"><span>••••••••</span><small>Sensitive region concealed</small></div>}
         <button type="button" onClick={() => revealRegion(region)}>Reveal {region.region_type.replaceAll('_', ' ')}</button>
       </article>)}</div></div>}
+      <div className="audit-section"><div className="section-heading"><div><p className="eyebrow">Accountability</p><h3>Activity history</h3></div><p className="muted">Append-only events for this document.</p></div><div className="audit-list">{auditEvents.map(event => <article key={event.id}><span className="audit-dot" aria-hidden="true"></span><div><strong>{formatStatus(event.event_type)}</strong><p>{formatStatus(event.target_type)} · {new Date(event.created_at).toLocaleString()}</p></div></article>)}{auditEvents.length === 0 && <p className="muted">No activity has been recorded yet.</p>}</div></div>
     </section>}
   </div>;
 }

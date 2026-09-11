@@ -39,6 +39,19 @@ class ObjectStorage:
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
+    def delete_many(self, keys: list[str]) -> None:
+        """Delete a bounded document object set in one storage request."""
+        unique_keys = list(dict.fromkeys(key for key in keys if key))
+        if not unique_keys:
+            return
+        response = self.client.delete_objects(
+            Bucket=self.bucket,
+            Delete={"Objects": [{"Key": key} for key in unique_keys], "Quiet": True},
+        )
+        errors = response.get("Errors", [])
+        if errors:
+            raise RuntimeError(f"Object cleanup failed for {len(errors)} item(s)")
+
     def get_bytes(self, key: str) -> bytes:
         response = self.client.get_object(Bucket=self.bucket, Key=key)
         return response["Body"].read()

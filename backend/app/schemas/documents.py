@@ -26,6 +26,15 @@ class DocumentSearchResponse(BaseModel):
     page_size: int
 
 
+class AuditEventResponse(BaseModel):
+    id: str
+    event_type: str
+    target_type: str
+    target_id: str | None
+    metadata: dict
+    created_at: datetime
+
+
 class BulkUploadItemResponse(BaseModel):
     filename: str
     outcome: str
