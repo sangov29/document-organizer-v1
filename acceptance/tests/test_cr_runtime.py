@@ -62,7 +62,10 @@ def test_CR_TC_001_printed_text_ocr_page_lineage(api, evidence, auth_token, run_
 @pytest.mark.catalogue("CR-TC-002", steps="1-5")
 def test_CR_TC_002_signature_region_detection(api, evidence, auth_token, email_factory, password_factory, run_id):
     import base64
+    from io import BytesIO
     import uuid as uuid_lib
+
+    from PIL import Image
 
     from conftest import extract_token_from_mail, login, wait_for_mail_text
     from test_cl_ex_runtime import _upload_and_wait
@@ -84,6 +87,7 @@ def test_CR_TC_002_signature_region_detection(api, evidence, auth_token, email_f
         if region["region_type"] == "signature"
     )
     assert signature["id"]
+    assert signature["page_id"]
     assert signature["sensitivity_type"] == "signature"
     assert signature["concealed"] is True
     assert set(signature["bbox"]) == {"x", "y", "width", "height"}
@@ -100,6 +104,20 @@ def test_CR_TC_002_signature_region_detection(api, evidence, auth_token, email_f
     assert page["confidence"] is not None and 0 <= page["confidence"] <= 1
     assert "Synthetic Signature" not in json.dumps(ocr.json())
     assert "CONCEALED" in json.dumps(ocr.json())
+
+    preview = api.request(
+        "GET", f"/documents/{document_id}/pages/{signature['page_id']}/preview",
+        label="CR-TC-002 redacted page preview", token=auth_token,
+    )
+    assert preview.status_code == 200
+    assert preview.headers["cache-control"] == "no-store, private"
+    preview_image = Image.open(BytesIO(preview.content)).convert("RGB")
+    box = signature["bbox"]
+    center = (
+        min(preview_image.width - 1, box["x"] + box["width"] // 2),
+        min(preview_image.height - 1, box["y"] + box["height"] // 2),
+    )
+    assert max(preview_image.getpixel(center)) < 100, "signature pixels must be concealed in previews"
 
     owner_reveal = api.request(
         "POST", f"/documents/{document_id}/regions/{signature['id']}/reveal",

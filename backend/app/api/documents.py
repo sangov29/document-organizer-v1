@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
-from PIL import Image
+from PIL import Image, ImageDraw
 from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -23,7 +23,7 @@ from app.models import (
 )
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
-    AuditEventResponse, BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
+    AuditEventResponse, AuditLogResponse, BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     ClassificationReviewRequest,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse, DocumentSearchResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
@@ -37,6 +37,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 ALLOWED_MIME = {"application/pdf", "image/jpeg", "image/png"}
 EXPORT_SCHEMA_VERSION = "export-v0.1"
 SENSITIVE_EXPORT_POLICY = "masked_no_bulk_reveal_v1"
+AUDIT_SCHEMA_VERSION = "audit-export-v0.1"
 
 
 def doc_response(doc: Document) -> DocumentResponse:
@@ -258,20 +259,46 @@ def search_documents(
     return DocumentSearchResponse(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.get("/audit", response_model=list[AuditEventResponse])
+def _owner_document_audit(db: Session, user_id: uuid.UUID, limit: int) -> list[AuditEvent]:
+    return list(db.scalars(
+        select(AuditEvent).where(
+            AuditEvent.user_id == user_id,
+            AuditEvent.target_type.in_(("document", "extracted_field", "visual_region")),
+        ).order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc()).limit(limit)
+    ).all())
+
+
+@router.get("/audit", response_model=AuditLogResponse)
 def list_document_audit_events(
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Return the owner's immutable document activity, including deletions."""
-    events = db.scalars(
-        select(AuditEvent).where(
-            AuditEvent.user_id == user.id,
-            AuditEvent.target_type.in_(("document", "extracted_field", "visual_region")),
-        ).order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc()).limit(limit)
-    ).all()
-    return [audit_response(event) for event in events]
+    events = _owner_document_audit(db, user.id, limit)
+    return AuditLogResponse(
+        schema_version=AUDIT_SCHEMA_VERSION,
+        events=[audit_response(event) for event in events],
+    )
+
+
+@router.get("/audit/export.json")
+def export_document_audit_events(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    payload = AuditLogResponse(
+        schema_version=AUDIT_SCHEMA_VERSION,
+        events=[audit_response(event) for event in _owner_document_audit(db, user.id, 500)],
+    ).model_dump(mode="json")
+    return Response(
+        content=json.dumps(payload, sort_keys=True, separators=(",", ":")),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": "attachment; filename=document-audit.json",
+            "Cache-Control": "no-store, private",
+        },
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -290,7 +317,7 @@ def get_document(
     return doc_response(document)
 
 
-@router.get("/{document_id}/audit", response_model=list[AuditEventResponse])
+@router.get("/{document_id}/audit", response_model=AuditLogResponse)
 def get_document_audit_events(
     document_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -315,7 +342,10 @@ def get_document_audit_events(
             AuditEvent.target_id.in_(target_ids),
         ).order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
     ).all()
-    return [audit_response(event) for event in events]
+    return AuditLogResponse(
+        schema_version=AUDIT_SCHEMA_VERSION,
+        events=[audit_response(event) for event in events],
+    )
 
 
 @router.delete("/{document_id}", status_code=204)
@@ -439,7 +469,7 @@ def _sensitive_regions_for_document(
     serialized: dict[uuid.UUID, SensitiveRegionResponse] = {}
     for region, tag in [*direct_rows, *field_rows]:
         response = SensitiveRegionResponse(
-            id=str(region.id), region_type=region.region_type,
+            id=str(region.id), page_id=str(region.page_id), region_type=region.region_type,
             sensitivity_type=tag.sensitivity_type, bbox=region.bbox,
         )
         existing = serialized.get(region.id)
@@ -456,6 +486,58 @@ def _sensitive_regions_for_document(
     if missing_ids:
         raise HTTPException(status_code=500, detail="Sensitive field region is missing")
     return [serialized[key] for key in sorted(serialized, key=str)]
+
+
+@router.get("/{document_id}/pages/{page_id}/preview")
+def get_page_preview(
+    document_id: uuid.UUID,
+    page_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return an owner-only normalized preview with sensitive pixels concealed."""
+    row = db.execute(
+        select(Page, PreprocessingResult)
+        .join(Document, Document.id == Page.document_id)
+        .join(PreprocessingResult, PreprocessingResult.page_id == Page.id)
+        .where(Page.id == page_id, Page.document_id == document_id, Document.user_id == user.id)
+    ).first()
+    if not row:
+        document = db.scalar(
+            select(Document).where(Document.id == document_id, Document.user_id == user.id)
+        )
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=202, detail="Page preview is not ready")
+    page, preprocessing = row
+    direct_regions = db.scalars(
+        select(VisualRegion)
+        .join(SensitivityTag, SensitivityTag.visual_region_id == VisualRegion.id)
+        .where(VisualRegion.page_id == page.id)
+    ).all()
+    field_regions = db.scalars(
+        select(VisualRegion)
+        .join(Provenance, Provenance.visual_region_id == VisualRegion.id)
+        .join(ExtractedField, ExtractedField.id == Provenance.extracted_field_id)
+        .join(SensitivityTag, SensitivityTag.extracted_field_id == ExtractedField.id)
+        .where(VisualRegion.page_id == page.id, ExtractedField.document_id == document_id)
+    ).all()
+    image = Image.open(BytesIO(storage.get_bytes(preprocessing.normalized_object_key))).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    for region in {item.id: item for item in [*direct_regions, *field_regions]}.values():
+        box = region.bbox
+        left, top = max(0, box["x"]), max(0, box["y"])
+        right = min(image.width, left + max(1, box["width"]))
+        bottom = min(image.height, top + max(1, box["height"]))
+        draw.rectangle((left, top, right, bottom), fill="#17231e", outline="#176b4d", width=3)
+        draw.text((left + 6, top + 5), "CONCEALED", fill="white")
+    output = BytesIO()
+    image.save(output, "PNG")
+    output.seek(0)
+    return StreamingResponse(
+        output, media_type="image/png",
+        headers={"Cache-Control": "no-store, private", "Content-Disposition": "inline"},
+    )
 
 
 @router.get("/{document_id}/analysis", response_model=DocumentAnalysisResponse)

@@ -28,9 +28,12 @@ type ExtractedField = {
 };
 
 type SensitiveRegion = {
-  id:string; region_type:string; sensitivity_type:string;
+  id:string; page_id:string; region_type:string; sensitivity_type:string;
   bbox:{x:number;y:number;width:number;height:number}; concealed:boolean;
 };
+
+type OCRBlock = {text:string; confidence:number; bbox:{x:number;y:number;width:number;height:number}};
+type PreviewPage = {page_id:string; page_number:number; blocks:OCRBlock[]; url:string; width:number; height:number};
 
 type Analysis = {
   document_id:string;
@@ -49,6 +52,8 @@ export default function DocumentDetail() {
   const [revealedFields, setRevealedFields] = useState<Record<string,string>>({});
   const [revealedRegions, setRevealedRegions] = useState<Record<string,string>>({});
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [previewPages, setPreviewPages] = useState<PreviewPage[]>([]);
+  const [showOCRBoxes, setShowOCRBoxes] = useState(false);
   const [message, setMessage] = useState('Loading document…');
 
   useEffect(() => {
@@ -65,7 +70,16 @@ export default function DocumentDetail() {
         if (analysisResponse.ok) {
           setAnalysis(await analysisResponse.json());
           const auditResponse = await fetch(`${API}/api/v1/documents/${params.id}/audit`, {headers:{Authorization:`Bearer ${token}`}});
-          if (auditResponse.ok) setAuditEvents(await auditResponse.json());
+          if (auditResponse.ok) setAuditEvents((await auditResponse.json()).events);
+          const ocrResponse = await fetch(`${API}/api/v1/documents/${params.id}/ocr`, {headers:{Authorization:`Bearer ${token}`}});
+          if (ocrResponse.ok) {
+            const ocr = await ocrResponse.json();
+            const previews = await Promise.all(ocr.pages.map(async (page:{page_id:string;page_number:number;blocks:OCRBlock[]}) => {
+              const preview = await fetch(`${API}/api/v1/documents/${params.id}/pages/${page.page_id}/preview`, {headers:{Authorization:`Bearer ${token}`}, cache:'no-store'});
+              return preview.ok ? {...page, url:URL.createObjectURL(await preview.blob()), width:0, height:0} : null;
+            }));
+            setPreviewPages(previews.filter((page:PreviewPage|null): page is PreviewPage => page !== null));
+          }
           setMessage('');
           return;
         }
@@ -157,6 +171,7 @@ export default function DocumentDetail() {
         <details><summary>Classification provenance</summary><p>{analysis.classification.provider} · {analysis.classification.model_version} · {analysis.classification.method}</p></details>
         {analysis.classification.review_required && <div className="review-alert" role="alert"><p>This classification is ambiguous and must be reviewed before fields can be approved.</p><button type="button" onClick={confirmClassification}>Confirm {analysis.classification.family}</button></div>}
       </div>
+      {previewPages.length > 0 && <div className="preview-section"><div className="section-heading"><div><p className="eyebrow">Visual evidence</p><h3>Page preview</h3></div><label className="overlay-toggle"><input type="checkbox" checked={showOCRBoxes} onChange={event => setShowOCRBoxes(event.target.checked)}/> Show OCR boxes</label></div><p className="muted">Sensitive pixels are concealed. Toggle recognition boxes to diagnose text detection and field alignment.</p><div className="preview-grid">{previewPages.map((page, index) => <figure key={page.page_id}><div className="page-canvas"><img src={page.url} alt={`Redacted document page ${page.page_number}`} onLoad={event => {const image=event.currentTarget; setPreviewPages(current => current.map((item, itemIndex) => itemIndex === index ? {...item,width:image.naturalWidth,height:image.naturalHeight} : item));}}/>{showOCRBoxes && page.width > 0 && page.blocks.map((block, blockIndex) => <span className="ocr-box" title={`${block.text} (${Math.round(block.confidence*100)}%)`} key={`${page.page_id}-${blockIndex}`} style={{left:`${block.bbox.x/page.width*100}%`,top:`${block.bbox.y/page.height*100}%`,width:`${block.bbox.width/page.width*100}%`,height:`${block.bbox.height/page.height*100}%`}}></span>)}</div><figcaption>Page {page.page_number} · {page.blocks.length} recognized text blocks</figcaption></figure>)}</div></div>}
       <div className="section-heading fields-heading"><div><p className="eyebrow">Structured data</p><h3>Extracted fields</h3></div><p className="muted">Confirm accurate values or save a correction.</p></div>
       <div className="field-list">{analysis.fields.map(field => <article className="field-card" data-testid={`field-${field.field_name}`} key={field.id}>
         <div className="field-header"><div><h4>{formatStatus(field.field_name)}</h4><div className="summary-chips"><span className={`trust trust-${field.trust_state}`}>{formatStatus(field.trust_state)}</span><span className="trust">{formatStatus(field.criticality)}</span>{field.confidence != null && <span className="trust">{Math.round(field.confidence * 100)}% confidence</span>}</div></div>{field.sensitive && <span className="privacy-chip">Sensitive</span>}</div>

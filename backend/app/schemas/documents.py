@@ -35,6 +35,11 @@ class AuditEventResponse(BaseModel):
     created_at: datetime
 
 
+class AuditLogResponse(BaseModel):
+    schema_version: str
+    events: list[AuditEventResponse]
+
+
 class BulkUploadItemResponse(BaseModel):
     filename: str
     outcome: str
@@ -124,6 +129,7 @@ class ExtractedFieldResponse(BaseModel):
 
 class SensitiveRegionResponse(BaseModel):
     id: str
+    page_id: str
     region_type: str
     sensitivity_type: str
     bbox: dict[str, int]

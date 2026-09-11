@@ -29,7 +29,8 @@ def test_document_deletion_and_owner_visible_audit(
         label="lifecycle document audit", token=auth_token,
     )
     assert audit.status_code == 200
-    assert any(event["event_type"] == "upload" for event in audit.json())
+    assert audit.json()["schema_version"] == "audit-export-v0.1"
+    assert any(event["event_type"] == "upload" for event in audit.json()["events"])
 
     db = SessionLocal()
     try:
@@ -91,12 +92,21 @@ def test_document_deletion_and_owner_visible_audit(
         "GET", "/documents/audit", label="lifecycle deletion audit retained",
         token=auth_token,
     )
+    assert account_audit.json()["schema_version"] == "audit-export-v0.1"
     deletion = next(
-        event for event in account_audit.json()
+        event for event in account_audit.json()["events"]
         if event["event_type"] == "deletion" and event["target_id"] == document_id
     )
     assert deletion["metadata"]["action"] == "permanent_delete"
     assert deletion["metadata"]["object_count"] == len(set(key for key in object_keys if key))
+
+    exported_audit = api.request(
+        "GET", "/documents/audit/export.json",
+        label="lifecycle stable audit export", token=auth_token,
+    )
+    assert exported_audit.status_code == 200
+    assert exported_audit.headers["cache-control"] == "no-store, private"
+    assert exported_audit.json()["schema_version"] == "audit-export-v0.1"
 
     reuploaded = api.request(
         "POST", "/documents", label="lifecycle reupload after deletion", token=auth_token,
