@@ -31,5 +31,5 @@ def test_ui_journey_uses_accessible_labels_not_visual_placeholder_copy():
 def test_minio_uses_official_registry_and_immutable_release():
     compose = (ROOT / "docker-compose.yml").read_text()
 
-    assert "quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z" in compose
+    assert "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z" in compose
     assert "minio/minio:latest" not in compose
