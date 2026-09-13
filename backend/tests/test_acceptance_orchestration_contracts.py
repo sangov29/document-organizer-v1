@@ -26,3 +26,10 @@ def test_ui_journey_uses_accessible_labels_not_visual_placeholder_copy():
     assert "getByText('Duplicate of')" not in journey
     assert "toContainText('Utility Bill')" in journey
     assert "toContainText('utility_bill')" not in journey
+
+
+def test_minio_uses_official_registry_and_immutable_release():
+    compose = (ROOT / "docker-compose.yml").read_text()
+
+    assert "quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z" in compose
+    assert "minio/minio:latest" not in compose
