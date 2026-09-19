@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     s3_bucket: str = "documents"
     s3_region: str = "us-east-1"
     redis_url: str
+    login_rate_limit: int = 10
+    login_rate_window_seconds: int = 300
+    totp_rate_limit: int = 5
+    totp_rate_window_seconds: int = 300
     max_upload_bytes: int = 20 * 1024 * 1024
     pp_min_width: int = 600
     pp_min_height: int = 800

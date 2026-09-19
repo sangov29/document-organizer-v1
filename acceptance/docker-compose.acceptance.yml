@@ -29,6 +29,9 @@ services:
       TIMING_MEDIAN_REL_TOL: ${TIMING_MEDIAN_REL_TOL:-0.25}
       TIMING_P95_REL_TOL: ${TIMING_P95_REL_TOL:-0.35}
       TIMING_KS_MAX: ${TIMING_KS_MAX:-0.35}
+      # The timing probe intentionally performs 112 failed logins. Rate-limit
+      # behavior has separate contracts; this override preserves that probe.
+      LOGIN_RATE_LIMIT: "1000"
     depends_on:
       mailpit:
         condition: service_healthy

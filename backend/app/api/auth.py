@@ -37,6 +37,8 @@ from app.schemas.auth import (
     VerifyEmailRequest,
 )
 from app.services.session_store import session_store
+from app.services.rate_limiter import rate_limiter
+from app.core.config import settings
 from app.workers.celery_app import send_password_reset_email, send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -159,7 +161,10 @@ def confirm_password_reset(payload: PasswordResetConfirmRequest, db: Session = D
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    email = payload.email.lower()
+    if not rate_limiter.allowed("login", email, settings.login_rate_limit, settings.login_rate_window_seconds):
+        raise HTTPException(status_code=429, detail="Too many login attempts", headers={"Retry-After": str(settings.login_rate_window_seconds)})
+    user = db.scalar(select(User).where(User.email == email))
     password_hash_to_check = user.password_hash if user else DUMMY_PASSWORD_HASH
     valid_password = verify_password(payload.password, password_hash_to_check)
     if not valid_password or not user or not user.is_verified:
@@ -176,6 +181,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
     session_id = uuid.uuid4().hex
+    rate_limiter.clear("login", email)
     session_store.create(session_id, str(user.id))
     db.add(AuditEvent(
         user_id=user.id,
@@ -202,6 +208,9 @@ def setup_totp(context: AuthContext = Depends(get_auth_context), db: Session = D
 @router.post("/totp/confirm", response_model=UserResponse)
 def confirm_totp(payload: TotpConfirmRequest, context: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)):
     user = context.user
+    subject = str(user.id)
+    if not rate_limiter.allowed("totp-confirm", subject, settings.totp_rate_limit, settings.totp_rate_window_seconds):
+        raise HTTPException(status_code=429, detail="Too many TOTP attempts", headers={"Retry-After": str(settings.totp_rate_window_seconds)})
     if user.totp_enabled or not user.totp_secret_ciphertext:
         raise HTTPException(status_code=400, detail="TOTP setup is not pending")
     try:
@@ -211,6 +220,7 @@ def confirm_totp(payload: TotpConfirmRequest, context: AuthContext = Depends(get
     if not verify_totp_code(secret, payload.code):
         raise HTTPException(status_code=400, detail="Invalid TOTP code")
     user.totp_enabled = True
+    rate_limiter.clear("totp-confirm", subject)
     db.add(AuditEvent(
         user_id=user.id,
         event_type=AuditEventType.AUTH_SECURITY,

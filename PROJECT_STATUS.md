@@ -1,8 +1,8 @@
 # Build Status — Verified V1 Runtime Baseline
 
-Baseline date: 13 September 2026  
-Verified commit: `94c133a4de0f07b6f6470634bb7a64889f461da9`  
-Evidence: GitHub Runtime Acceptance Run #52
+Baseline date: 19 September 2026  
+Verified commit: `9817106d28807d4f72609a518bf67d9710808893`  
+Evidence: GitHub Runtime Acceptance Run #56
 
 ## Current result
 
@@ -14,7 +14,9 @@ Evidence: GitHub Runtime Acceptance Run #52
 - `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 
-Run #52 also confirms the immutable MinIO Community image correction after
+Run #56 also confirms the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
+build, Docker development-origin configuration, hydration guard and single-flight
+email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction after
 Run #51 was blocked before startup by a nonexistent container tag.
 
 Run #31 closed the two defects found by Run #30:
@@ -70,7 +72,6 @@ frozen. The model adapter remains gated until the private pilot contains at
 least 30 permission-cleared and manually labelled documents and passes
 `evaluation/validate_corpus_manifest.py --mode pilot --verify-files`.
 
-While corpus collection proceeds, unblocked work should focus on production
-security and operational readiness. The first maintenance increment after this
-baseline upgrades the vulnerable Next.js 15.2.3 frontend and makes the browser
-test dependency installation lockfile-reproducible.
+While corpus collection proceeds, unblocked work focuses on production security
+and operational readiness. The Next.js maintenance increment is complete; the
+next security increment adds Redis-backed login and TOTP attempt throttling.
