@@ -17,5 +17,8 @@ def test_tags_and_collections_are_owner_scoped_and_filterable():
 def test_tags_and_collections_have_cascade_safe_join_tables():
     migration = (ROOT / "alembic" / "versions" / "0009_tags_collections.py").read_text()
     assert 'down_revision = "0008"' in migration
+    assert 'get_table_names()' in migration
+    assert 'if "tags" not in tables' in migration
+    assert 'if "collections" not in tables' in migration
     assert '"document_tags"' in migration and '"collection_documents"' in migration
     assert migration.count('ondelete="CASCADE"') >= 6
