@@ -108,6 +108,12 @@ else:
 PY
 
 set +e
+"${COMPOSE[@]}" run --rm -T \
+  -v "$ROOT:/repo:ro" -w /repo/backend backend \
+  env PYTHONPATH=/repo/backend pytest -q tests \
+  --junitxml=/evidence/junit-source-contracts.xml 2>&1 | tee "$EVIDENCE_DIR/source-contract-output.txt"
+SOURCE_CONTRACT_EXIT=${PIPESTATUS[0]}
+
 "${COMPOSE[@]}" exec -T backend \
   env PYTHONPATH=/app pytest -c /acceptance/pytest.ini /acceptance/tests \
   --junitxml=/evidence/junit-functional.xml -q -x 2>&1 | tee "$EVIDENCE_DIR/pytest-output.txt"
@@ -147,6 +153,7 @@ set -e
 cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
 {
   "run_id": "$RUN_ID",
+  "source_contract_exit": $SOURCE_CONTRACT_EXIT,
   "functional_exit": $FUNCTIONAL_EXIT,
   "timing_exit": $TIMING_EXIT,
   "ocr_evaluation_exit": $OCR_EVAL_EXIT,
@@ -157,12 +164,14 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "ocr_evaluation_json": "ocr-evaluation.json",
   "ocr_evaluation_junit": "junit-ocr-evaluation.xml",
   "ui_junit": "junit-ui.xml",
+  "source_contract_junit": "junit-source-contracts.xml",
   "known_catalogue_gaps": [],
   "mail_scope": "local Mailpit queue/token/sink lifecycle only; no external provider claim"
 }
 JSON
 
 printf '\nFunctional acceptance exit: %s\n' "$FUNCTIONAL_EXIT"
+printf 'Source/model contract exit: %s\n' "$SOURCE_CONTRACT_EXIT"
 printf 'Timing evidence exit: %s\n' "$TIMING_EXIT"
 printf 'OCR evaluation exit: %s\n' "$OCR_EVAL_EXIT"
 printf 'UI acceptance exit: %s\n' "$UI_EXIT"
@@ -170,6 +179,6 @@ printf 'Evidence directory: %s\n' "$EVIDENCE_REL"
 
 # Timing is intentionally separate, but the one-command harness is considered
 # unsuccessful if either evidence stream fails its own acceptance rule.
-if [[ $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 ]]; then
+if [[ $SOURCE_CONTRACT_EXIT -ne 0 || $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 ]]; then
   exit 1
 fi

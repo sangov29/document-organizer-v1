@@ -58,3 +58,12 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
     assert "const verificationStarted = useRef(false)" in verify_page
     assert "if (verificationStarted.current) return" in verify_page
     assert "verificationStarted.current = true" in verify_page
+
+
+def test_harness_executes_backend_source_contracts_as_a_mandatory_evidence_stream():
+    harness = (ROOT / "acceptance" / "run-local.sh").read_text()
+
+    assert "pytest -q tests" in harness
+    assert "junit-source-contracts.xml" in harness
+    assert 'SOURCE_CONTRACT_EXIT=${PIPESTATUS[0]}' in harness
+    assert "SOURCE_CONTRACT_EXIT -ne 0" in harness

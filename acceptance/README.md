@@ -1,8 +1,8 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #33 is the
-verified baseline: 53 functional tests, 3 timing probes and 1 browser journey
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #57 is the
+verified baseline: 54 functional tests, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
 all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules
@@ -36,7 +36,8 @@ are CER <= 0.20 and WER <= 0.35 for every case and the aggregate. The corpus is
 deterministic and document-like; it is an initial regression gate, not a claim
 of production or population-wide OCR accuracy.
 
-The Playwright journey supplies separate browser evidence for registration,
+Backend source/model contracts are executed inside the backend image as a
+separate mandatory JUnit evidence stream. The Playwright journey supplies separate browser evidence for registration,
 verification, login, upload, duplicate keep, inert filename rendering,
 document analysis/review and logout. Functional API, timing and UI results
 remain separate evidence streams.
@@ -87,10 +88,11 @@ The script:
 3. brings up PostgreSQL, Redis, MinIO, Mailpit, API, worker and frontend;
 4. applies Alembic migrations;
 5. waits for API and Mailpit health;
-6. runs functional pytest acceptance and writes JUnit XML;
-7. runs the separate timing probe and writes timing JSON + timing JUnit XML;
-8. runs the separate PaddleOCR labelled-corpus evaluation;
-9. runs the browser-level frontend journey and captures UI JUnit/screenshots;
-10. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
+6. runs backend source/model contracts and writes separate JUnit XML;
+7. runs functional pytest acceptance and writes JUnit XML;
+8. runs the separate timing probe and writes timing JSON + timing JUnit XML;
+9. runs the separate PaddleOCR labelled-corpus evaluation;
+10. runs the browser-level frontend journey and captures UI JUnit/screenshots;
+11. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
 
 Evidence is written under `acceptance/evidence/<run-id>/`.

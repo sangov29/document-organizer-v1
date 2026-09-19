@@ -15,6 +15,7 @@ frontend_dockerfile = Path('frontend/Dockerfile').read_text()
 frontend_config = Path('frontend/next.config.mjs').read_text()
 register_page = Path('frontend/app/register/page.tsx').read_text()
 verify_page = Path('frontend/app/verify-email/page.tsx').read_text()
+harness = Path('acceptance/run-local.sh').read_text()
 expected = (
     {f'UM-TC-{i:03d}' for i in range(1,6)}
     | {f'DI-TC-{i:03d}' for i in range(1,6)}
@@ -41,5 +42,7 @@ assert 'disabled={!hydrated}' in register_page
 assert 'const verificationStarted = useRef(false)' in verify_page
 assert 'if (verificationStarted.current) return' in verify_page
 assert 'verificationStarted.current = true' in verify_page
+assert 'junit-source-contracts.xml' in harness
+assert 'SOURCE_CONTRACT_EXIT -ne 0' in harness
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY

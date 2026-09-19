@@ -1,8 +1,8 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 19 September 2026  
-Verified commit: `9817106d28807d4f72609a518bf67d9710808893`  
-Evidence: GitHub Runtime Acceptance Run #56
+Verified commit: `9948056cd6bb7def1abe8c6b3c86440e3646ff9e`  
+Evidence: GitHub Runtime Acceptance Run #57
 
 ## Current result
 
@@ -14,7 +14,7 @@ Evidence: GitHub Runtime Acceptance Run #56
 - `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 
-Run #56 also confirms the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
+Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
 build, Docker development-origin configuration, hydration guard and single-flight
 email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction after
 Run #51 was blocked before startup by a nonexistent container tag.
