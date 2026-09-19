@@ -4,7 +4,7 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance Run #56 is the current evidence baseline:
+GitHub Runtime Acceptance Run #59 is the current evidence baseline:
 
 - **54/54 functional tests passed**
 - **50 exact catalogue IDs covered**
@@ -27,7 +27,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 - Versioned predefined fields for Identity, Utility, Banking and Invoice/Receipt, plus generic Unknown fields, confidence, criticality and `not_found`
 - Classification and field confirmation/correction with audit history
 - Provenance linking classification and fields to documents, pages and regions
-- Automatic organization, search, date sorting and pagination
+- Automatic organization, privacy-safe full-text OCR search, structured-value search, date sorting and pagination
 - Stable JSON and normalized CSV export
 - Owner-authorized permanent deletion of document data and stored source/derived objects
 - Owner-visible append-only activity history, including a minimal retained deletion fact

@@ -84,3 +84,21 @@ def test_SR_TC_003_date_sort_and_pagination(api, auth_token, run_id):
     assert next_page["items"] and next_page["items"][0]["id"] == first["document_id"]
     future = _search(api, auth_token, "SR-TC-003 future exclusion", q="sr003-", uploaded_from=(now + timedelta(days=1)).isoformat())
     assert future["total"] == 0
+
+
+def test_full_text_ocr_search_and_sensitive_value_exclusion(api, auth_token, run_id):
+    marker = f"Acme-OCR-{run_id}"
+    utility = _upload_and_wait(api, auth_token, run_id, "sr-ocr-utility", [
+        "UTILITY BILL", "ELECTRICITY SERVICE", "Provider: Search Energy",
+        f"Service note: {marker}",
+    ])
+    found = _search(api, auth_token, "OCR full-text search", q=marker, page_size=100)
+    assert {item["id"] for item in found["items"]} == {utility["document_id"]}
+
+    raw_account = "554433221199"
+    banking = _upload_and_wait(api, auth_token, run_id, "sr-ocr-sensitive", [
+        "BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN",
+        f"Account Number: {raw_account}",
+    ])
+    concealed = _search(api, auth_token, "OCR sensitive value excluded", q=raw_account, page_size=100)
+    assert banking["document_id"] not in {item["id"] for item in concealed["items"]}

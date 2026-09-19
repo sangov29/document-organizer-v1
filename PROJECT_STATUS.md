@@ -1,8 +1,8 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 19 September 2026  
-Verified commit: `e3306163dcd61b123294d25391854926790397bc`  
-Evidence: GitHub Runtime Acceptance Run #58
+Verified commit: `22ec83d0511eb193fbfd979b4899937a7ddd0cb4`  
+Evidence: GitHub Runtime Acceptance Run #59
 
 ## Current result
 
@@ -14,6 +14,7 @@ Evidence: GitHub Runtime Acceptance Run #58
 - `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 - Backend source/model contracts: **48 passed**, with separate mandatory JUnit evidence
+- Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
 Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
 build, Docker development-origin configuration, hydration guard and single-flight
@@ -50,6 +51,7 @@ Run #31 closed the two defects found by Run #30:
 - Versioned predefined extraction for Identity, Utility, Banking and Invoice/Receipt, plus generic Unknown extraction with confidence, criticality and explicit `not_found`
 - Classification/field review, correction, confirmation and history preservation
 - Organization, owner-scoped search, date sorting and pagination
+- Owner-scoped full-text OCR search, with sensitivity-tagged extracted values excluded from OCR matching
 - Stable JSON and normalized multi-document CSV export
 - Permanent owner-controlled deletion of document database and object-storage data while retaining a value-free audit record
 - Owner-wide and per-document audit history plus versioned JSON audit export
@@ -62,7 +64,7 @@ Run #31 closed the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Run #52 proves deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Run #59 proves the existing deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim. The full-text OCR search increment is pending the next Runtime Acceptance run and is not included in Run #59's 54-test functional result.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
@@ -73,6 +75,6 @@ frozen. The model adapter remains gated until the private pilot contains at
 least 30 permission-cleared and manually labelled documents and passes
 `evaluation/validate_corpus_manifest.py --mode pilot --verify-files`.
 
-While corpus collection proceeds, unblocked work focuses on production security
-and operational readiness. The Next.js maintenance increment is complete; the
-next security increment adds Redis-backed login and TOTP attempt throttling.
+While corpus collection proceeds, unblocked work focuses on product usability,
+production security and operational readiness. The Next.js and Playwright
+maintenance increments and Redis-backed login/TOTP throttling are complete.

@@ -231,9 +231,23 @@ def search_documents(
         ExtractedField.value.ilike(f"%{field_value}%"),
         ~exists().where(SensitivityTag.extracted_field_id == ExtractedField.id),
     ) if field_value else None
+    searchable_ocr = exists().where(
+        Page.document_id == Document.id,
+        OCRArtifact.page_id == Page.id,
+        OCRArtifact.text.ilike(f"%{q}%"),
+    ) if q else None
+    sensitive_value_match = exists().where(
+        ExtractedField.document_id == Document.id,
+        ExtractedField.is_active.is_(True),
+        ExtractedField.value.ilike(f"%{q}%"),
+        exists().where(SensitivityTag.extracted_field_id == ExtractedField.id),
+    ) if q else None
     statement = select(Document).where(Document.user_id == user.id)
     if q:
-        statement = statement.where(Document.original_filename.ilike(f"%{q}%"))
+        statement = statement.where(or_(
+            Document.original_filename.ilike(f"%{q}%"),
+            (searchable_ocr & ~sensitive_value_match),
+        ))
     if active_classification is not None:
         statement = statement.where(active_classification)
     if searchable_field is not None:

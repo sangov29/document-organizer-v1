@@ -39,6 +39,14 @@ def test_analysis_serializer_queries_both_sensitive_region_tag_paths():
     assert "missing_ids" in helper_source
 
 
+def test_search_includes_ocr_text_without_matching_sensitive_field_values():
+    source = (ROOT / "api" / "documents.py").read_text()
+    assert "OCRArtifact.text.ilike" in source
+    assert "Page.document_id == Document.id" in source
+    assert "Document.user_id == user.id" in source
+    assert "searchable_ocr & ~sensitive_value_match" in source
+
+
 def test_invoice_receipt_schema_extracts_versioned_bounded_fields():
     text = "\n".join([
         "TAX INVOICE",
