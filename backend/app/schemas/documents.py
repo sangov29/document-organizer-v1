@@ -12,6 +12,18 @@ class DocumentResponse(BaseModel):
     duplicate_of_document_id: str | None = None
     status: str
     uploaded_at: datetime
+    tags: list[dict] = Field(default_factory=list)
+    collections: list[dict] = Field(default_factory=list)
+
+
+class NamedResourceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class NamedResourceResponse(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
 
 
 class OrganizedDocumentResponse(DocumentResponse):

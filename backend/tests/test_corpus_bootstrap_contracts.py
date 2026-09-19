@@ -29,6 +29,9 @@ def test_bootstrap_creates_hashed_draft_records(tmp_path):
     assert document["id"] == f"corpus-{document['sha256'][:12]}"
     assert document["source_path"] == "private/identity.pdf"
     assert document["consent_reference"] == "TODO"
+    assert document["permission_basis"] == "TODO"
+    assert document["source_provenance"] == "TODO"
+    assert document["second_reviewer"] == "TODO"
     assert document["expected_family"] == "TODO"
     assert document["fields"] == []
 

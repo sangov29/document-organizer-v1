@@ -3,7 +3,24 @@
 Real documents, consent records and ground-truth labels must remain local. Git
 contains only the tooling, schema example and tests.
 
-## 1. Add permission-cleared documents
+## 1. Intake one permission-cleared document
+
+Use the restricted local CLI. It accepts exactly one file, records the written
+permission basis, source provenance and assigned second reviewer, rejects
+duplicate content by SHA-256, and updates the ignored working manifest:
+
+```bash
+python evaluation/intake_document.py /safe/path/document.jpg \
+  --permission-basis owner_document \
+  --provenance "Owner-supplied mobile photograph" \
+  --second-reviewer reviewer-handle
+```
+
+Supported permission bases are `owner_document`, `written_consent`,
+`realistic_synthetic`, and `public_domain`. Do not put personal names or document
+contents in the provenance string.
+
+## 2. Add permission-cleared documents manually
 
 On Windows PowerShell, from the repository root:
 
@@ -15,7 +32,7 @@ Copy only permission-cleared PDF, JPG, JPEG or PNG documents into
 `evaluation/private`. Remove unnecessary personal information first. Duplicate
 file content is rejected because duplicates would distort accuracy results.
 
-## 2. Create the draft manifest
+## 3. Create the draft manifest
 
 ```powershell
 python evaluation/bootstrap_corpus.py
@@ -34,7 +51,7 @@ python evaluation/bootstrap_corpus.py --update
 Updates match records by content hash. A record whose source file is missing is
 retained so accidental deletion cannot silently change the evaluation set.
 
-## 3. Review and validate
+## 4. Review and validate
 
 After two reviewers resolve all label disagreements, set `label_review` to
 `two-reviewer-resolved` and run:

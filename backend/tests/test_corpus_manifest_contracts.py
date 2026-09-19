@@ -17,6 +17,9 @@ def _document(index: int, family: str, kind: str | None = None) -> dict:
         "source_path": f"private/sample-{index:03d}.pdf",
         "sha256": f"{index:064x}",
         "consent_reference": f"consent-{index:03d}",
+        "permission_basis": "written_consent",
+        "source_provenance": f"internal-source-{index:03d}",
+        "second_reviewer": "reviewer-b",
         "expected_family": family,
         "fields": [
             {

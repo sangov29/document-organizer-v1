@@ -102,3 +102,37 @@ def test_full_text_ocr_search_and_sensitive_value_exclusion(api, auth_token, run
     ])
     concealed = _search(api, auth_token, "OCR sensitive value excluded", q=raw_account, page_size=100)
     assert banking["document_id"] not in {item["id"] for item in concealed["items"]}
+
+
+def test_owner_tags_and_collections_organize_and_filter_documents(api, auth_token, run_id):
+    document = _upload_and_wait(api, auth_token, run_id, "organization-user-defined", [
+        "UTILITY BILL", "Provider: User Organization Energy",
+    ])
+    tag_response = api.request(
+        "POST", "/documents/tags", label="create owner tag", token=auth_token,
+        json={"name": f"Tax {run_id}"},
+    )
+    collection_response = api.request(
+        "POST", "/documents/collections", label="create owner collection", token=auth_token,
+        json={"name": f"Important {run_id}"},
+    )
+    assert tag_response.status_code == collection_response.status_code == 201
+    tag = tag_response.json()
+    collection = collection_response.json()
+
+    tagged = api.request(
+        "PUT", f"/documents/{document['document_id']}/tags/{tag['id']}",
+        label="assign owner tag", token=auth_token,
+    )
+    collected = api.request(
+        "PUT", f"/documents/{document['document_id']}/collections/{collection['id']}",
+        label="assign owner collection", token=auth_token,
+    )
+    assert tagged.status_code == collected.status_code == 200
+    assert {item["id"] for item in tagged.json()["tags"]} == {tag["id"]}
+    assert {item["id"] for item in collected.json()["collections"]} == {collection["id"]}
+
+    by_tag = _search(api, auth_token, "filter by owner tag", tag_id=tag["id"], page_size=100)
+    by_collection = _search(api, auth_token, "filter by owner collection", collection_id=collection["id"], page_size=100)
+    assert {item["id"] for item in by_tag["items"]} == {document["document_id"]}
+    assert {item["id"] for item in by_collection["items"]} == {document["document_id"]}

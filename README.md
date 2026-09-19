@@ -4,9 +4,9 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance Run #59 is the current evidence baseline:
+GitHub Runtime Acceptance Run #60 is the current evidence baseline:
 
-- **54/54 functional tests passed**
+- **55/55 functional tests passed**
 - **50 exact catalogue IDs covered**
 - **3/3 timing probes passed**
 - **1/1 Playwright browser journey passed**
@@ -28,6 +28,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 - Classification and field confirmation/correction with audit history
 - Provenance linking classification and fields to documents, pages and regions
 - Automatic organization, privacy-safe full-text OCR search, structured-value search, date sorting and pagination
+- Owner-defined tags and collections
 - Stable JSON and normalized CSV export
 - Owner-authorized permanent deletion of document data and stored source/derived objects
 - Owner-visible append-only activity history, including a minimal retained deletion fact
@@ -35,7 +36,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 
 ## Architecture
 
-The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 13 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0008`.
+The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 15 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0009`.
 
 PaddleOCR is the default OCR provider. The worker uses the CPU-oriented
 `PP-OCRv5_mobile_det` and English `en_PP-OCRv5_mobile_rec` models. Page

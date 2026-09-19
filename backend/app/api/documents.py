@@ -17,9 +17,9 @@ from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
-    AuditEvent, ClassificationResult, Correction, Document, ExtractedField,
+    AuditEvent, ClassificationResult, Collection, Correction, Document, ExtractedField,
     OCRArtifact, Page, PreprocessingResult, ProcessingJob, Provenance,
-    SensitivityTag, User, VisualRegion,
+    SensitivityTag, Tag, User, VisualRegion, collection_documents, document_tags,
 )
 from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
@@ -27,7 +27,8 @@ from app.schemas.documents import (
     ClassificationReviewRequest,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse, DocumentSearchResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
-    OrganizedDocumentResponse, SensitiveRegionResponse, SensitiveRevealResponse,
+    NamedResourceCreate, NamedResourceResponse, OrganizedDocumentResponse,
+    SensitiveRegionResponse, SensitiveRevealResponse,
 )
 from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text, mask_sensitive_value
 from app.services.storage import storage
@@ -46,7 +47,27 @@ def doc_response(doc: Document) -> DocumentResponse:
         size_bytes=doc.size_bytes, sha256=doc.sha256, status=doc.status.value,
         duplicate_of_document_id=(str(doc.duplicate_of_document_id) if doc.duplicate_of_document_id else None),
         uploaded_at=doc.uploaded_at,
+        tags=[{"id": str(tag.id), "name": tag.name} for tag in sorted(doc.tags, key=lambda item: item.name.casefold())],
+        collections=[{"id": str(item.id), "name": item.name} for item in sorted(doc.collections, key=lambda item: item.name.casefold())],
     )
+
+
+def _clean_resource_name(name: str, maximum: int) -> str:
+    cleaned = " ".join(name.split())
+    if not cleaned or len(cleaned) > maximum:
+        raise HTTPException(status_code=422, detail=f"Name must contain 1 to {maximum} characters")
+    return cleaned
+
+
+def _owned_document(db: Session, user: User, document_id: str) -> Document:
+    try:
+        parsed = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Document not found")
+    document = db.scalar(select(Document).where(Document.id == parsed, Document.user_id == user.id))
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document
 
 
 def audit_response(event: AuditEvent) -> AuditEventResponse:
@@ -207,11 +228,127 @@ def list_documents(db: Session = Depends(get_db), user: User = Depends(get_curre
     return [doc_response(d) for d in docs]
 
 
+@router.get("/tags", response_model=list[NamedResourceResponse])
+def list_tags(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return [NamedResourceResponse(id=str(item.id), name=item.name, created_at=item.created_at) for item in db.scalars(select(Tag).where(Tag.user_id == user.id).order_by(Tag.name)).all()]
+
+
+@router.post("/tags", response_model=NamedResourceResponse, status_code=201)
+def create_tag(payload: NamedResourceCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    name = _clean_resource_name(payload.name, 64)
+    if db.scalar(select(Tag.id).where(Tag.user_id == user.id, func.lower(Tag.name) == name.casefold())):
+        raise HTTPException(status_code=409, detail="Tag name already exists")
+    tag = Tag(user_id=user.id, name=name)
+    db.add(tag)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Tag name already exists")
+    db.refresh(tag)
+    return NamedResourceResponse(id=str(tag.id), name=tag.name, created_at=tag.created_at)
+
+
+@router.delete("/tags/{tag_id}", status_code=204)
+def delete_tag(tag_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    tag = db.scalar(select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id))
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    db.delete(tag)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.get("/collections", response_model=list[NamedResourceResponse])
+def list_collections(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return [NamedResourceResponse(id=str(item.id), name=item.name, created_at=item.created_at) for item in db.scalars(select(Collection).where(Collection.user_id == user.id).order_by(Collection.name)).all()]
+
+
+@router.post("/collections", response_model=NamedResourceResponse, status_code=201)
+def create_collection(payload: NamedResourceCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    name = _clean_resource_name(payload.name, 100)
+    if db.scalar(select(Collection.id).where(Collection.user_id == user.id, func.lower(Collection.name) == name.casefold())):
+        raise HTTPException(status_code=409, detail="Collection name already exists")
+    collection = Collection(user_id=user.id, name=name)
+    db.add(collection)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Collection name already exists")
+    db.refresh(collection)
+    return NamedResourceResponse(id=str(collection.id), name=collection.name, created_at=collection.created_at)
+
+
+@router.delete("/collections/{collection_id}", status_code=204)
+def delete_collection(collection_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    collection = db.scalar(select(Collection).where(Collection.id == collection_id, Collection.user_id == user.id))
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    db.delete(collection)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.put("/{document_id}/tags/{tag_id}", response_model=DocumentResponse)
+def add_document_tag(document_id: str, tag_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = _owned_document(db, user, document_id)
+    tag = db.scalar(select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id))
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    if tag not in document.tags:
+        document.tags.append(tag)
+        db.commit()
+        db.refresh(document)
+    return doc_response(document)
+
+
+@router.delete("/{document_id}/tags/{tag_id}", response_model=DocumentResponse)
+def remove_document_tag(document_id: str, tag_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = _owned_document(db, user, document_id)
+    tag = db.scalar(select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id))
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    if tag in document.tags:
+        document.tags.remove(tag)
+        db.commit()
+        db.refresh(document)
+    return doc_response(document)
+
+
+@router.put("/{document_id}/collections/{collection_id}", response_model=DocumentResponse)
+def add_document_collection(document_id: str, collection_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = _owned_document(db, user, document_id)
+    collection = db.scalar(select(Collection).where(Collection.id == collection_id, Collection.user_id == user.id))
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    if collection not in document.collections:
+        document.collections.append(collection)
+        db.commit()
+        db.refresh(document)
+    return doc_response(document)
+
+
+@router.delete("/{document_id}/collections/{collection_id}", response_model=DocumentResponse)
+def remove_document_collection(document_id: str, collection_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = _owned_document(db, user, document_id)
+    collection = db.scalar(select(Collection).where(Collection.id == collection_id, Collection.user_id == user.id))
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    if collection in document.collections:
+        document.collections.remove(collection)
+        db.commit()
+        db.refresh(document)
+    return doc_response(document)
+
+
 @router.get("/search", response_model=DocumentSearchResponse)
 def search_documents(
     q: str | None = Query(None, max_length=200),
     family: str | None = Query(None, max_length=64),
     field_value: str | None = Query(None, max_length=200),
+    tag_id: uuid.UUID | None = None,
+    collection_id: uuid.UUID | None = None,
     uploaded_from: datetime | None = None,
     uploaded_to: datetime | None = None,
     sort: Literal["newest", "oldest"] = "newest",
@@ -252,6 +389,18 @@ def search_documents(
         statement = statement.where(active_classification)
     if searchable_field is not None:
         statement = statement.where(searchable_field)
+    if tag_id:
+        statement = statement.where(exists().where(
+            document_tags.c.document_id == Document.id,
+            document_tags.c.tag_id == tag_id,
+            exists().where(Tag.id == tag_id, Tag.user_id == user.id),
+        ))
+    if collection_id:
+        statement = statement.where(exists().where(
+            collection_documents.c.document_id == Document.id,
+            collection_documents.c.collection_id == collection_id,
+            exists().where(Collection.id == collection_id, Collection.user_id == user.id),
+        ))
     if uploaded_from:
         statement = statement.where(Document.uploaded_at >= uploaded_from)
     if uploaded_to:

@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Boolean, CheckConstraint, DateTime, Enum, Float, ForeignKey, Integer,
-    Index, JSON, String, Text, UniqueConstraint, text
+    Boolean, CheckConstraint, Column, DateTime, Enum, Float, ForeignKey, Integer,
+    Index, JSON, String, Table, Text, UniqueConstraint, text
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,6 +14,19 @@ from app.models.enums import (
 
 def uuid_pk():
     return mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+
+document_tags = Table(
+    "document_tags", Base.metadata,
+    Column("document_id", ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+collection_documents = Table(
+    "collection_documents", Base.metadata,
+    Column("collection_id", ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True),
+    Column("document_id", ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class User(Base):
@@ -44,12 +57,34 @@ class Document(Base):
     status: Mapped[ProcessingStatus] = mapped_column(Enum(ProcessingStatus, name="processing_status"), default=ProcessingStatus.QUEUED)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     pages = relationship("Page", back_populates="document", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary=document_tags, back_populates="documents")
+    collections = relationship("Collection", secondary=collection_documents, back_populates="documents")
     __table_args__ = (
         Index(
             "uq_document_user_hash_canonical", "user_id", "sha256", unique=True,
             postgresql_where=text("duplicate_of_document_id IS NULL"),
         ),
     )
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    documents = relationship("Document", secondary=document_tags, back_populates="tags")
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_tag_user_name"),)
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    documents = relationship("Document", secondary=collection_documents, back_populates="collections")
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_collection_user_name"),)
 
 
 class Page(Base):

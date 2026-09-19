@@ -8,6 +8,9 @@
       "source_path": "private/sample-001.pdf",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "consent_reference": "internal-approval-reference-without-personal-data",
+      "permission_basis": "written_consent",
+      "source_provenance": "Non-sensitive internal source description",
+      "second_reviewer": "reviewer-handle",
       "expected_family": "unknown",
       "out_of_family_kind": "certificate",
       "fields": [

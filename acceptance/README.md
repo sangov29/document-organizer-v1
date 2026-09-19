@@ -1,8 +1,8 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #57 is the
-verified baseline: 54 functional tests, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Run #60 is the
+verified baseline: 55 functional tests, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
 all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules

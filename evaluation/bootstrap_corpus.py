@@ -78,6 +78,9 @@ def build_manifest(manifest_path: Path, private_dir: Path, update: bool = False)
                 "source_path": relative,
                 "sha256": digest,
                 "consent_reference": "TODO",
+                "permission_basis": "TODO",
+                "source_provenance": "TODO",
+                "second_reviewer": "TODO",
                 "expected_family": "TODO",
                 "fields": [],
             }

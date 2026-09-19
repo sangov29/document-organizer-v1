@@ -13,6 +13,7 @@ FAMILIES = {"identity", "utility", "banking", "educational", "employment", "invo
 OUT_OF_FAMILY_KINDS = {"certificate", "resume_cv", "plane_ticket", "boarding_pass", "other"}
 REQUIRED_OUT_OF_FAMILY_KINDS = {"certificate", "resume_cv", "plane_ticket", "boarding_pass"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+PERMISSION_BASES = {"owner_document", "written_consent", "realistic_synthetic", "public_domain"}
 
 
 def validate(manifest: dict, root: Path, verify_files: bool, mode: str) -> list[str]:
@@ -58,6 +59,12 @@ def validate(manifest: dict, root: Path, verify_files: bool, mode: str) -> list[
             errors.append(f"{prefix}.sha256 must be 64 lowercase hexadecimal characters")
         if not document.get("consent_reference"):
             errors.append(f"{prefix}.consent_reference is required")
+        if document.get("permission_basis") not in PERMISSION_BASES:
+            errors.append(f"{prefix}.permission_basis is invalid")
+        if not document.get("source_provenance"):
+            errors.append(f"{prefix}.source_provenance is required")
+        if not document.get("second_reviewer"):
+            errors.append(f"{prefix}.second_reviewer is required")
         fields = document.get("fields")
         if not isinstance(fields, list):
             errors.append(f"{prefix}.fields must be an array")

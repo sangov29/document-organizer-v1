@@ -1,6 +1,7 @@
 # PP-StructureV3 Side-by-Side Spike — Adoption Gate
 
-Status: criteria frozen before implementation
+Status: parked, not cancelled; criteria frozen before implementation; target
+date unset pending an owner-supplied corpus
 
 ## Purpose
 
