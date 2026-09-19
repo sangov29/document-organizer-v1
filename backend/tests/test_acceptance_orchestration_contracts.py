@@ -40,9 +40,15 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
     frontend_package = json.loads((ROOT / "frontend" / "package.json").read_text())
     frontend_lock = json.loads((ROOT / "frontend" / "package-lock.json").read_text())
     ui_dockerfile = (ROOT / "acceptance" / "ui" / "Dockerfile").read_text()
+    frontend_dockerfile = (ROOT / "frontend" / "Dockerfile").read_text()
+    register_page = (ROOT / "frontend" / "app" / "register" / "page.tsx").read_text()
 
     assert frontend_package["dependencies"]["next"] == "16.3.5"
     assert frontend_lock["packages"]["node_modules/next"]["version"] == "16.3.5"
     assert "COPY package.json package-lock.json ./" in ui_dockerfile
     assert "RUN npm ci" in ui_dockerfile
     assert "RUN npm install" not in ui_dockerfile
+    assert "RUN npm ci" in frontend_dockerfile
+    assert "RUN npm install" not in frontend_dockerfile
+    assert "disabled={!hydrated}" in register_page
+    assert "useEffect(() => setHydrated(true), [])" in register_page
