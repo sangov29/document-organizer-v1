@@ -25,12 +25,14 @@ from app.models.enums import AuditEventType, ProcessingStatus, TrustState
 from app.schemas.documents import (
     AuditEventResponse, AuditLogResponse, BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     ClassificationReviewRequest,
-    DocumentAnalysisResponse, DocumentOCRResponse, DocumentResponse, DocumentSearchResponse,
+    DocumentAnalysisResponse, DocumentOCRResponse, DocumentReminderResponse, DocumentResponse,
+    DocumentSearchResponse, ReminderListResponse,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
     NamedResourceCreate, NamedResourceResponse, OrganizedDocumentResponse,
     SensitiveRegionResponse, SensitiveRevealResponse,
 )
 from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text, mask_sensitive_value
+from app.services.reminders import REMINDER_FIELDS, parse_document_date, reminder_status
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
 
@@ -340,6 +342,41 @@ def remove_document_collection(document_id: str, collection_id: uuid.UUID, db: S
         db.commit()
         db.refresh(document)
     return doc_response(document)
+
+
+@router.get("/reminders", response_model=ReminderListResponse)
+def list_document_reminders(
+    within_days: int = Query(90, ge=1, le=3650),
+    include_overdue: bool = True,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    today = datetime.now(timezone.utc).date()
+    rows = db.execute(
+        select(Document, ExtractedField).join(
+            ExtractedField, ExtractedField.document_id == Document.id
+        ).where(
+            Document.user_id == user.id,
+            ExtractedField.is_active.is_(True),
+            ExtractedField.field_name.in_(REMINDER_FIELDS),
+            ExtractedField.value.is_not(None),
+        )
+    ).all()
+    items = []
+    for document, field in rows:
+        parsed = parse_document_date(field.value)
+        if not parsed:
+            continue
+        days_remaining = (parsed - today).days
+        if days_remaining > within_days or (days_remaining < 0 and not include_overdue):
+            continue
+        items.append(DocumentReminderResponse(
+            document_id=str(document.id), original_filename=document.original_filename,
+            field_name=field.field_name, due_date=parsed.isoformat(),
+            days_remaining=days_remaining, status=reminder_status(days_remaining),
+        ))
+    items.sort(key=lambda item: (item.days_remaining, item.document_id, item.field_name))
+    return ReminderListResponse(generated_on=today.isoformat(), within_days=within_days, items=items)
 
 
 @router.get("/search", response_model=DocumentSearchResponse)

@@ -38,6 +38,21 @@ class DocumentSearchResponse(BaseModel):
     page_size: int
 
 
+class DocumentReminderResponse(BaseModel):
+    document_id: str
+    original_filename: str
+    field_name: str
+    due_date: str
+    days_remaining: int
+    status: Literal["overdue", "due_soon", "upcoming"]
+
+
+class ReminderListResponse(BaseModel):
+    generated_on: str
+    within_days: int
+    items: list[DocumentReminderResponse]
+
+
 class AuditEventResponse(BaseModel):
     id: str
     event_type: str

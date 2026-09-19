@@ -1,22 +1,22 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 19 September 2026  
-Verified commit: `24d7cd448fa7af1b03733229f51975fe09dd9e51`  
-Evidence: GitHub Runtime Acceptance Run #60
+Verified commit: `72c8911c6ba20b7ce2be3d72bbe0cfd6b357a85f`  
+Evidence: GitHub Runtime Acceptance Run #62
 
 ## Current result
 
-- Functional runtime acceptance: **55 passed, 0 failed, 0 errors, 0 skipped**
+- Functional runtime acceptance: **56 passed, 0 failed, 0 errors, 0 skipped**
 - Frozen catalogue coverage: **50 exact IDs** across UM, DI, PP, CR, CL, EX, PR, VA, SR, OR, IN and SEC
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
 - Labelled deterministic OCR evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
 - `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
-- Backend source/model contracts: **49 passed**, with separate mandatory JUnit evidence
+- Backend source/model contracts: **53 passed**, with separate mandatory JUnit evidence
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
+Run #62 confirms owner-scoped tags and collections, the private corpus-intake CLI contract and the sequential `0009` migration after Run #61 exposed and corrected an Alembic import-order defect. Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
 build, Docker development-origin configuration, hydration guard and single-flight
 email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction after
 Run #51 was blocked before startup by a nonexistent container tag.
@@ -52,7 +52,7 @@ Run #31 closed the two defects found by Run #30:
 - Classification/field review, correction, confirmation and history preservation
 - Organization, owner-scoped search, date sorting and pagination
 - Owner-scoped full-text OCR search, with sensitivity-tagged extracted values excluded from OCR matching
-- User-defined, owner-scoped tags and collections with document filtering (pending Run #61 evidence)
+- User-defined, owner-scoped tags and collections with document filtering
 - Stable JSON and normalized multi-document CSV export
 - Permanent owner-controlled deletion of document database and object-storage data while retaining a value-free audit record
 - Owner-wide and per-document audit history plus versioned JSON audit export
@@ -65,7 +65,7 @@ Run #31 closed the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Run #60 proves the existing deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim. Tags, collections and the corpus-intake CLI are pending Run #61 evidence and are not included in Run #60's 55-test functional result.
+Run #62 proves the existing deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim. The 56-test functional result includes owner-scoped tags and collections; the source-contract result includes the corpus-intake CLI contract.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 

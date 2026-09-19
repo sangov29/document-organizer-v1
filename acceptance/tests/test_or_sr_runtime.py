@@ -136,3 +136,35 @@ def test_owner_tags_and_collections_organize_and_filter_documents(api, auth_toke
     by_collection = _search(api, auth_token, "filter by owner collection", collection_id=collection["id"], page_size=100)
     assert {item["id"] for item in by_tag["items"]} == {document["document_id"]}
     assert {item["id"] for item in by_collection["items"]} == {document["document_id"]}
+
+
+def test_owner_expiry_and_due_date_reminders(api, auth_token, run_id):
+    today = datetime.now(timezone.utc).date()
+    due = today + timedelta(days=10)
+    expired = today - timedelta(days=5)
+    utility = _upload_and_wait(api, auth_token, run_id, "reminder-utility", [
+        "UTILITY BILL", "ELECTRICITY SERVICE", "Provider: Reminder Energy",
+        f"Due Date: {due.strftime('%d %B %Y')}",
+    ])
+    identity = _upload_and_wait(api, auth_token, run_id, "reminder-identity", [
+        "PASSPORT", "IDENTITY DOCUMENT", "Full Name: Reminder Example",
+        "Document Number: REM12345", f"Expiry Date: {expired.strftime('%d %B %Y')}",
+    ])
+
+    response = api.request(
+        "GET", "/documents/reminders", label="owner reminders", token=auth_token,
+        params={"within_days": 30, "include_overdue": "true"},
+    )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    utility_item = next(item for item in items if item["document_id"] == utility["document_id"])
+    identity_item = next(item for item in items if item["document_id"] == identity["document_id"])
+    assert (utility_item["field_name"], utility_item["days_remaining"], utility_item["status"]) == ("due_date", 10, "due_soon")
+    assert (identity_item["field_name"], identity_item["days_remaining"], identity_item["status"]) == ("expiry_date", -5, "overdue")
+
+    without_overdue = api.request(
+        "GET", "/documents/reminders", label="owner reminders without overdue", token=auth_token,
+        params={"within_days": 30, "include_overdue": "false"},
+    )
+    assert without_overdue.status_code == 200
+    assert identity["document_id"] not in {item["document_id"] for item in without_overdue.json()["items"]}
