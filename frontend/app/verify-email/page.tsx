@@ -1,12 +1,17 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api';
 import Link from 'next/link';
 
 export default function VerifyEmail() {
   const [message, setMessage] = useState('Verifying…');
+  const verificationStarted = useRef(false);
 
   useEffect(() => {
+    // React Strict Mode replays effects in development. Verification tokens are
+    // intentionally single-use, so never submit the same token twice.
+    if (verificationStarted.current) return;
+    verificationStarted.current = true;
     const token = new URLSearchParams(window.location.search).get('token');
     if (!token) { setMessage('Verification link is missing a token.'); return; }
     api('/auth/verify-email', {

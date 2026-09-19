@@ -43,6 +43,7 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
     frontend_dockerfile = (ROOT / "frontend" / "Dockerfile").read_text()
     frontend_config = (ROOT / "frontend" / "next.config.mjs").read_text()
     register_page = (ROOT / "frontend" / "app" / "register" / "page.tsx").read_text()
+    verify_page = (ROOT / "frontend" / "app" / "verify-email" / "page.tsx").read_text()
 
     assert frontend_package["dependencies"]["next"] == "16.3.5"
     assert frontend_lock["packages"]["node_modules/next"]["version"] == "16.3.5"
@@ -54,3 +55,6 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
     assert "allowedDevOrigins: ['frontend']" in frontend_config
     assert "disabled={!hydrated}" in register_page
     assert "useEffect(() => setHydrated(true), [])" in register_page
+    assert "const verificationStarted = useRef(false)" in verify_page
+    assert "if (verificationStarted.current) return" in verify_page
+    assert "verificationStarted.current = true" in verify_page
