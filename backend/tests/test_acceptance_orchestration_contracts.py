@@ -40,6 +40,8 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
     frontend_package = json.loads((ROOT / "frontend" / "package.json").read_text())
     frontend_lock = json.loads((ROOT / "frontend" / "package-lock.json").read_text())
     ui_dockerfile = (ROOT / "acceptance" / "ui" / "Dockerfile").read_text()
+    ui_package = json.loads((ROOT / "acceptance" / "ui" / "package.json").read_text())
+    ui_lock = json.loads((ROOT / "acceptance" / "ui" / "package-lock.json").read_text())
     frontend_dockerfile = (ROOT / "frontend" / "Dockerfile").read_text()
     frontend_config = (ROOT / "frontend" / "next.config.mjs").read_text()
     register_page = (ROOT / "frontend" / "app" / "register" / "page.tsx").read_text()
@@ -50,6 +52,9 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
     assert "COPY package.json package-lock.json ./" in ui_dockerfile
     assert "RUN npm ci" in ui_dockerfile
     assert "RUN npm install" not in ui_dockerfile
+    assert ui_package["devDependencies"]["@playwright/test"] == "1.63.0"
+    assert ui_lock["packages"]["node_modules/@playwright/test"]["version"] == "1.63.0"
+    assert "mcr.microsoft.com/playwright:v1.63.0-noble" in ui_dockerfile
     assert "RUN npm ci" in frontend_dockerfile
     assert "RUN npm install" not in frontend_dockerfile
     assert "allowedDevOrigins: ['frontend']" in frontend_config

@@ -12,6 +12,7 @@ frontend_lock = json.loads(Path('frontend/package-lock.json').read_text())
 ui_package = json.loads(Path('acceptance/ui/package.json').read_text())
 ui_lock = json.loads(Path('acceptance/ui/package-lock.json').read_text())
 frontend_dockerfile = Path('frontend/Dockerfile').read_text()
+ui_dockerfile = Path('acceptance/ui/Dockerfile').read_text()
 frontend_config = Path('frontend/next.config.mjs').read_text()
 register_page = Path('frontend/app/register/page.tsx').read_text()
 verify_page = Path('frontend/app/verify-email/page.tsx').read_text()
@@ -36,6 +37,9 @@ assert frontend_package['dependencies']['next'] == '16.3.5'
 assert frontend_lock['packages']['']['dependencies']['next'] == '16.3.5'
 assert frontend_lock['packages']['node_modules/next']['version'] == '16.3.5'
 assert ui_lock['packages']['']['devDependencies'] == ui_package['devDependencies']
+assert ui_package['devDependencies']['@playwright/test'] == '1.63.0'
+assert ui_lock['packages']['node_modules/@playwright/test']['version'] == '1.63.0'
+assert 'mcr.microsoft.com/playwright:v1.63.0-noble' in ui_dockerfile
 assert 'RUN npm ci' in frontend_dockerfile and 'RUN npm install' not in frontend_dockerfile
 assert "allowedDevOrigins: ['frontend']" in frontend_config
 assert 'disabled={!hydrated}' in register_page

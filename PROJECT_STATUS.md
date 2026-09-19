@@ -1,8 +1,8 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 19 September 2026  
-Verified commit: `9948056cd6bb7def1abe8c6b3c86440e3646ff9e`  
-Evidence: GitHub Runtime Acceptance Run #57
+Verified commit: `e3306163dcd61b123294d25391854926790397bc`  
+Evidence: GitHub Runtime Acceptance Run #58
 
 ## Current result
 
@@ -13,6 +13,7 @@ Evidence: GitHub Runtime Acceptance Run #57
 - Labelled deterministic OCR evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
 - `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
+- Backend source/model contracts: **48 passed**, with separate mandatory JUnit evidence
 
 Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
 build, Docker development-origin configuration, hydration guard and single-flight
