@@ -1,17 +1,21 @@
 # Build Status — Verified V1 Runtime Baseline
 
-Baseline date: 7 September 2026  
-Verified commit: `f04d16516c79ba21bdd9d1b613789264e3084e69`  
-Evidence: GitHub Runtime Acceptance Run #33
+Baseline date: 13 September 2026  
+Verified commit: `94c133a4de0f07b6f6470634bb7a64889f461da9`  
+Evidence: GitHub Runtime Acceptance Run #52
 
 ## Current result
 
-- Functional runtime acceptance: **53 passed, 0 failed, 0 errors, 0 skipped**
+- Functional runtime acceptance: **54 passed, 0 failed, 0 errors, 0 skipped**
 - Frozen catalogue coverage: **50 exact IDs** across UM, DI, PP, CR, CL, EX, PR, VA, SR, OR, IN and SEC
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
-- `functional_exit=0`, `timing_exit=0`, `ui_exit=0`
+- Labelled deterministic OCR evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
+- `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
+
+Run #52 also confirms the immutable MinIO Community image correction after
+Run #51 was blocked before startup by a nonexistent container tag.
 
 Run #31 closed the two defects found by Run #30:
 
@@ -44,6 +48,9 @@ Run #31 closed the two defects found by Run #30:
 - Classification/field review, correction, confirmation and history preservation
 - Organization, owner-scoped search, date sorting and pagination
 - Stable JSON and normalized multi-document CSV export
+- Permanent owner-controlled deletion of document database and object-storage data while retaining a value-free audit record
+- Owner-wide and per-document audit history plus versioned JSON audit export
+- Multi-page preview with extracted/sensitive-region overlays and server-side redacted page rendering
 
 ### Data model and migrations
 
@@ -52,17 +59,18 @@ Run #31 closed the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Run #33 proves deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Run #52 proves deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
 ## Next product decision
 
-The implementation has reached a clean 50-ID runtime baseline. Before adding another feature, define and freeze the next catalogue increment. Recommended order:
+The PP-StructureV3 adoption criteria and private-corpus manifest contract are
+frozen. The model adapter remains gated until the private pilot contains at
+least 30 permission-cleared and manually labelled documents and passes
+`evaluation/validate_corpus_manifest.py --mode pilot --verify-files`.
 
-1. labelled-corpus AI evaluation for OCR, classification and extraction;
-2. production lifecycle controls: retention, deletion and recovery;
-3. operational readiness: observability, load/resilience and deployment qualification;
-4. expanded review/search/export browser journeys.
-
-No Run #32 feature scope is claimed until one of these increments has explicit acceptance criteria.
+While corpus collection proceeds, unblocked work should focus on production
+security and operational readiness. The first maintenance increment after this
+baseline upgrades the vulnerable Next.js 15.2.3 frontend and makes the browser
+test dependency installation lockfile-reproducible.

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,3 +34,15 @@ def test_minio_uses_official_registry_and_immutable_release():
 
     assert "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z" in compose
     assert "minio/minio:latest" not in compose
+
+
+def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
+    frontend_package = json.loads((ROOT / "frontend" / "package.json").read_text())
+    frontend_lock = json.loads((ROOT / "frontend" / "package-lock.json").read_text())
+    ui_dockerfile = (ROOT / "acceptance" / "ui" / "Dockerfile").read_text()
+
+    assert frontend_package["dependencies"]["next"] == "16.3.5"
+    assert frontend_lock["packages"]["node_modules/next"]["version"] == "16.3.5"
+    assert "COPY package.json package-lock.json ./" in ui_dockerfile
+    assert "RUN npm ci" in ui_dockerfile
+    assert "RUN npm install" not in ui_dockerfile

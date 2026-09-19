@@ -7,6 +7,10 @@ python3 - <<'PY'
 import json
 from pathlib import Path
 m = json.loads(Path('acceptance/coverage-map.json').read_text())
+frontend_package = json.loads(Path('frontend/package.json').read_text())
+frontend_lock = json.loads(Path('frontend/package-lock.json').read_text())
+ui_package = json.loads(Path('acceptance/ui/package.json').read_text())
+ui_lock = json.loads(Path('acceptance/ui/package-lock.json').read_text())
 expected = (
     {f'UM-TC-{i:03d}' for i in range(1,6)}
     | {f'DI-TC-{i:03d}' for i in range(1,6)}
@@ -23,5 +27,9 @@ expected = (
 )
 actual = set(m['tests'])
 assert actual == expected, (expected - actual, actual - expected)
+assert frontend_package['dependencies']['next'] == '16.3.5'
+assert frontend_lock['packages']['']['dependencies']['next'] == '16.3.5'
+assert frontend_lock['packages']['node_modules/next']['version'] == '16.3.5'
+assert ui_lock['packages']['']['devDependencies'] == ui_package['devDependencies']
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY
