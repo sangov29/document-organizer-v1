@@ -12,6 +12,7 @@ frontend_lock = json.loads(Path('frontend/package-lock.json').read_text())
 ui_package = json.loads(Path('acceptance/ui/package.json').read_text())
 ui_lock = json.loads(Path('acceptance/ui/package-lock.json').read_text())
 frontend_dockerfile = Path('frontend/Dockerfile').read_text()
+frontend_config = Path('frontend/next.config.mjs').read_text()
 register_page = Path('frontend/app/register/page.tsx').read_text()
 expected = (
     {f'UM-TC-{i:03d}' for i in range(1,6)}
@@ -34,6 +35,7 @@ assert frontend_lock['packages']['']['dependencies']['next'] == '16.3.5'
 assert frontend_lock['packages']['node_modules/next']['version'] == '16.3.5'
 assert ui_lock['packages']['']['devDependencies'] == ui_package['devDependencies']
 assert 'RUN npm ci' in frontend_dockerfile and 'RUN npm install' not in frontend_dockerfile
+assert "allowedDevOrigins: ['frontend']" in frontend_config
 assert 'disabled={!hydrated}' in register_page
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY
