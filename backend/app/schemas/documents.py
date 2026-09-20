@@ -53,6 +53,15 @@ class ReminderListResponse(BaseModel):
     items: list[DocumentReminderResponse]
 
 
+class ReminderPreferencesUpdate(BaseModel):
+    enabled: bool
+    window_days: int = Field(ge=1, le=3650)
+
+
+class ReminderPreferencesResponse(ReminderPreferencesUpdate):
+    pass
+
+
 class AuditEventResponse(BaseModel):
     id: str
     event_type: str

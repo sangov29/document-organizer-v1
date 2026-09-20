@@ -168,3 +168,33 @@ def test_owner_expiry_and_due_date_reminders(api, auth_token, run_id):
     )
     assert without_overdue.status_code == 200
     assert identity["document_id"] not in {item["document_id"] for item in without_overdue.json()["items"]}
+
+    preferences = api.request(
+        "GET", "/documents/reminders/preferences", label="get reminder preferences", token=auth_token,
+    )
+    assert preferences.status_code == 200
+    assert preferences.json() == {"enabled": True, "window_days": 90}
+
+    disabled = api.request(
+        "PUT", "/documents/reminders/preferences", label="disable reminders", token=auth_token,
+        json={"enabled": False, "window_days": 7},
+    )
+    assert disabled.status_code == 200
+    assert disabled.json() == {"enabled": False, "window_days": 7}
+    disabled_list = api.request(
+        "GET", "/documents/reminders", label="disabled reminder list", token=auth_token,
+    )
+    assert disabled_list.status_code == 200
+    assert disabled_list.json()["items"] == []
+
+    enabled = api.request(
+        "PUT", "/documents/reminders/preferences", label="enable seven-day reminders", token=auth_token,
+        json={"enabled": True, "window_days": 7},
+    )
+    assert enabled.status_code == 200
+    short_window = api.request(
+        "GET", "/documents/reminders", label="preference-based reminder window", token=auth_token,
+    )
+    assert short_window.status_code == 200
+    assert short_window.json()["within_days"] == 7
+    assert utility["document_id"] not in {item["document_id"] for item in short_window.json()["items"]}

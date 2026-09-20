@@ -39,6 +39,8 @@ class User(Base):
     reset_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     totp_secret_ciphertext: Mapped[str | None] = mapped_column(Text)
+    reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    reminder_window_days: Mapped[int] = mapped_column(Integer, default=90, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 

@@ -26,7 +26,7 @@ from app.schemas.documents import (
     AuditEventResponse, AuditLogResponse, BatchExportRequest, BulkUploadItemResponse, BulkUploadResponse, ClassificationResponse,
     ClassificationReviewRequest,
     DocumentAnalysisResponse, DocumentOCRResponse, DocumentReminderResponse, DocumentResponse,
-    DocumentSearchResponse, ReminderListResponse,
+    DocumentSearchResponse, ReminderListResponse, ReminderPreferencesResponse, ReminderPreferencesUpdate,
     ExtractedFieldResponse, FieldReviewRequest, OCRPageResponse, ResultProvenanceResponse,
     NamedResourceCreate, NamedResourceResponse, OrganizedDocumentResponse,
     SensitiveRegionResponse, SensitiveRevealResponse,
@@ -346,12 +346,15 @@ def remove_document_collection(document_id: str, collection_id: uuid.UUID, db: S
 
 @router.get("/reminders", response_model=ReminderListResponse)
 def list_document_reminders(
-    within_days: int = Query(90, ge=1, le=3650),
+    within_days: int | None = Query(None, ge=1, le=3650),
     include_overdue: bool = True,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    effective_window = within_days if within_days is not None else user.reminder_window_days
     today = datetime.now(timezone.utc).date()
+    if not user.reminders_enabled:
+        return ReminderListResponse(generated_on=today.isoformat(), within_days=effective_window, items=[])
     rows = db.execute(
         select(Document, ExtractedField).join(
             ExtractedField, ExtractedField.document_id == Document.id
@@ -368,7 +371,7 @@ def list_document_reminders(
         if not parsed:
             continue
         days_remaining = (parsed - today).days
-        if days_remaining > within_days or (days_remaining < 0 and not include_overdue):
+        if days_remaining > effective_window or (days_remaining < 0 and not include_overdue):
             continue
         items.append(DocumentReminderResponse(
             document_id=str(document.id), original_filename=document.original_filename,
@@ -376,7 +379,29 @@ def list_document_reminders(
             days_remaining=days_remaining, status=reminder_status(days_remaining),
         ))
     items.sort(key=lambda item: (item.days_remaining, item.document_id, item.field_name))
-    return ReminderListResponse(generated_on=today.isoformat(), within_days=within_days, items=items)
+    return ReminderListResponse(generated_on=today.isoformat(), within_days=effective_window, items=items)
+
+
+@router.get("/reminders/preferences", response_model=ReminderPreferencesResponse)
+def get_reminder_preferences(user: User = Depends(get_current_user)):
+    return ReminderPreferencesResponse(
+        enabled=user.reminders_enabled, window_days=user.reminder_window_days,
+    )
+
+
+@router.put("/reminders/preferences", response_model=ReminderPreferencesResponse)
+def update_reminder_preferences(
+    payload: ReminderPreferencesUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    user.reminders_enabled = payload.enabled
+    user.reminder_window_days = payload.window_days
+    db.commit()
+    db.refresh(user)
+    return ReminderPreferencesResponse(
+        enabled=user.reminders_enabled, window_days=user.reminder_window_days,
+    )
 
 
 @router.get("/search", response_model=DocumentSearchResponse)

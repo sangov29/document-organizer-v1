@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-python3 -m py_compile acceptance/tests/conftest.py acceptance/tests/fixtures.py acceptance/tests/test_um_runtime.py acceptance/tests/test_di_runtime.py acceptance/tests/test_pp_runtime.py acceptance/tests/test_cr_runtime.py acceptance/tests/test_cl_ex_runtime.py acceptance/tests/test_cl_va_runtime.py acceptance/tests/test_pr_runtime.py acceptance/tests/test_sec_runtime.py acceptance/tests/test_in_runtime.py acceptance/tests/test_or_sr_runtime.py acceptance/tests/test_lifecycle_runtime.py acceptance/tools/timing_probe.py acceptance/tools/ocr_evaluation.py acceptance/tools/sanitize_logs.py acceptance/tools/wait_for_stack.py evaluation/bootstrap_corpus.py evaluation/intake_document.py evaluation/validate_corpus_manifest.py backend/app/api/auth.py backend/app/api/documents.py backend/app/schemas/documents.py backend/app/workers/celery_app.py backend/alembic/versions/0008_classification_review.py backend/alembic/versions/0009_tags_collections.py backend/app/services/rate_limiter.py backend/app/services/ocr.py backend/app/services/analysis.py backend/app/services/sensitivity.py backend/app/services/reminders.py
+python3 -m py_compile acceptance/tests/conftest.py acceptance/tests/fixtures.py acceptance/tests/test_um_runtime.py acceptance/tests/test_di_runtime.py acceptance/tests/test_pp_runtime.py acceptance/tests/test_cr_runtime.py acceptance/tests/test_cl_ex_runtime.py acceptance/tests/test_cl_va_runtime.py acceptance/tests/test_pr_runtime.py acceptance/tests/test_sec_runtime.py acceptance/tests/test_in_runtime.py acceptance/tests/test_or_sr_runtime.py acceptance/tests/test_lifecycle_runtime.py acceptance/tools/timing_probe.py acceptance/tools/ocr_evaluation.py acceptance/tools/sanitize_logs.py acceptance/tools/wait_for_stack.py evaluation/bootstrap_corpus.py evaluation/intake_document.py evaluation/validate_corpus_manifest.py backend/app/api/auth.py backend/app/api/documents.py backend/app/schemas/documents.py backend/app/workers/celery_app.py backend/alembic/versions/0008_classification_review.py backend/alembic/versions/0009_tags_collections.py backend/alembic/versions/0010_reminder_preferences.py backend/app/services/rate_limiter.py backend/app/services/ocr.py backend/app/services/analysis.py backend/app/services/sensitivity.py backend/app/services/reminders.py
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -50,8 +50,8 @@ assert 'if (verificationStarted.current) return' in verify_page
 assert 'verificationStarted.current = true' in verify_page
 assert 'junit-source-contracts.xml' in harness
 assert 'SOURCE_CONTRACT_EXIT -ne 0' in harness
-assert 'Evidence: GitHub Runtime Acceptance Run #62' in project_status
-assert '`72c8911c6ba20b7ce2be3d72bbe0cfd6b357a85f`' in project_status
+assert 'Evidence: GitHub Runtime Acceptance Run #63' in project_status
+assert '`1ca64ec4d53c1026ae8628f3b79883eb0fba0b17`' in project_status
 assert 'PROJECT_STATUS.md` names the latest green run' in release_checklist
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY
