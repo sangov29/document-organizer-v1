@@ -133,7 +133,7 @@ class APIClient:
         try:
             body = response.json()
             if isinstance(body, dict):
-                if "id" in body and path.startswith("/documents"):
+                if "id" in body and (path == "/documents" or path.endswith("/versions")):
                     self.recorder.document(body.get("id"))
                 document = body.get("document")
                 if isinstance(document, dict):

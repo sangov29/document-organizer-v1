@@ -227,6 +227,11 @@ def test_time_limited_share_is_masked_revocable_and_non_enumerating(api, evidenc
     assert account["sensitive"] is True and account["masked"] is True
     assert account["value"] != "555566667777"
 
+    tampered_token = share["token"][:-1] + ("A" if share["token"][-1] != "A" else "B")
+    assert api.request(
+        "GET", f"/shares/{tampered_token}", label="tampered share denied",
+    ).status_code == 404
+
     listed = api.request(
         "GET", f"/documents/{document_id}/shares",
         label="list owner shares", token=auth_token,

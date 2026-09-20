@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -51,9 +52,11 @@ def create_document_share(
     user: User = Depends(get_current_user),
 ):
     document = _owned_document(db, user, document_id)
-    token = secrets.token_urlsafe(32)
+    link_id = uuid.uuid4()
+    token = f"{link_id}.{secrets.token_urlsafe(32)}"
     expires_at = datetime.now(timezone.utc) + timedelta(hours=payload.expires_in_hours)
     link = ShareLink(
+        id=link_id,
         document_id=document.id, user_id=user.id,
         token_digest=_token_digest(token), expires_at=expires_at,
     )
@@ -117,12 +120,17 @@ def revoke_document_share(
 def view_shared_document(token: str, response: Response, db: Session = Depends(get_db)):
     response.headers["Cache-Control"] = "no-store"
     now = datetime.now(timezone.utc)
-    link = db.scalar(select(ShareLink).where(
-        ShareLink.token_digest == _token_digest(token),
-        ShareLink.revoked_at.is_(None),
-        ShareLink.expires_at > now,
-    ))
-    if not link:
+    try:
+        link_id = uuid.UUID(token.split(".", 1)[0])
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=404, detail="Shared document not found")
+    link = db.get(ShareLink, link_id)
+    if (
+        not link
+        or not hmac.compare_digest(link.token_digest, _token_digest(token))
+        or link.revoked_at is not None
+        or link.expires_at <= now
+    ):
         raise HTTPException(status_code=404, detail="Shared document not found")
     document = db.get(Document, link.document_id)
     if not document:
