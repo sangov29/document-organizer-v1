@@ -53,12 +53,13 @@ def create_document_share(
 ):
     document = _owned_document(db, user, document_id)
     link_id = uuid.uuid4()
-    token = f"{link_id}.{secrets.token_urlsafe(32)}"
+    secret = secrets.token_urlsafe(32)
+    token = f"{link_id}.{secret}"
     expires_at = datetime.now(timezone.utc) + timedelta(hours=payload.expires_in_hours)
     link = ShareLink(
         id=link_id,
         document_id=document.id, user_id=user.id,
-        token_digest=_token_digest(token), expires_at=expires_at,
+        token_digest=_token_digest(secret), expires_at=expires_at,
     )
     db.add(link)
     db.flush()
@@ -121,13 +122,16 @@ def view_shared_document(token: str, response: Response, db: Session = Depends(g
     response.headers["Cache-Control"] = "no-store"
     now = datetime.now(timezone.utc)
     try:
-        link_id = uuid.UUID(token.split(".", 1)[0])
+        raw_link_id, secret = token.split(".", 1)
+        link_id = uuid.UUID(raw_link_id)
+        if not secret:
+            raise ValueError
     except (ValueError, AttributeError):
         raise HTTPException(status_code=404, detail="Shared document not found")
     link = db.get(ShareLink, link_id)
     if (
         not link
-        or not hmac.compare_digest(link.token_digest, _token_digest(token))
+        or not hmac.compare_digest(link.token_digest, _token_digest(secret))
         or link.revoked_at is not None
         or link.expires_at <= now
     ):

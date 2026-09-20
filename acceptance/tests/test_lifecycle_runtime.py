@@ -215,6 +215,14 @@ def test_time_limited_share_is_masked_revocable_and_non_enumerating(api, evidenc
     share = created.json()
     assert share["id"] and share["token"] and share["expires_at"]
 
+    listed = api.request(
+        "GET", f"/documents/{document_id}/shares",
+        label="list persisted owner share", token=auth_token,
+    )
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == share["id"]
+    assert share["token"] not in json.dumps(listed.json())
+
     public = api.request(
         "GET", f"/shares/{share['token']}", label="read masked public share",
     )
@@ -231,14 +239,6 @@ def test_time_limited_share_is_masked_revocable_and_non_enumerating(api, evidenc
     assert api.request(
         "GET", f"/shares/{tampered_token}", label="tampered share denied",
     ).status_code == 404
-
-    listed = api.request(
-        "GET", f"/documents/{document_id}/shares",
-        label="list owner shares", token=auth_token,
-    )
-    assert listed.status_code == 200
-    assert listed.json()[0]["id"] == share["id"]
-    assert share["token"] not in json.dumps(listed.json())
 
     revoked = api.request(
         "DELETE", f"/documents/{document_id}/shares/{share['id']}",

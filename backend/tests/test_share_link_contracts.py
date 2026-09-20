@@ -25,8 +25,8 @@ def test_share_routes_are_owner_scoped_expiring_and_revocable():
     assert '@router.post("/documents/{document_id}/shares"' in source
     assert '@router.delete("/documents/{document_id}/shares/{share_id}"' in source
     assert "ShareLink.user_id == user.id" in source
-    assert 'link_id = uuid.UUID(token.split(".", 1)[0])' in source
-    assert "hmac.compare_digest(link.token_digest, _token_digest(token))" in source
+    assert 'raw_link_id, secret = token.split(".", 1)' in source
+    assert "hmac.compare_digest(link.token_digest, _token_digest(secret))" in source
     assert "link.revoked_at is not None" in source
     assert "link.expires_at <= now" in source
 
