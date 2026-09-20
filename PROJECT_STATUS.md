@@ -70,6 +70,13 @@ Run #63 proves the existing deterministic V1 behavior against the Docker accepta
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
+Full-text OCR search confirms raw database candidates against the same redacted
+text returned by the public OCR endpoint, so sensitive-only occurrences remain
+excluded while independent ordinary-text occurrences are searchable. For a
+text query, V1 performs this privacy confirmation in Python before pagination;
+this is appropriate for a personal library but must move to indexed redacted
+search material before large-scale deployment.
+
 ## Next product decision
 
 The PP-StructureV3 adoption criteria and private-corpus manifest contract remain

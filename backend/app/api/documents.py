@@ -404,6 +404,16 @@ def update_reminder_preferences(
     )
 
 
+def _document_has_nonsensitive_ocr_occurrence(db: Session, document_id: uuid.UUID, needle: str) -> bool:
+    """Return whether a query survives the public OCR redaction policy."""
+    texts = db.scalars(
+        select(OCRArtifact.text)
+        .join(Page, Page.id == OCRArtifact.page_id)
+        .where(Page.document_id == document_id)
+    ).all()
+    return any(needle in mask_ocr_text(text or "").lower() for text in texts)
+
+
 @router.get("/search", response_model=DocumentSearchResponse)
 def search_documents(
     q: str | None = Query(None, max_length=200),
@@ -430,22 +440,18 @@ def search_documents(
         ExtractedField.value.ilike(f"%{field_value}%"),
         ~exists().where(SensitivityTag.extracted_field_id == ExtractedField.id),
     ) if field_value else None
+    # A raw OCR match is only a candidate. It is confirmed below against the
+    # same redaction policy used by the public OCR response.
     searchable_ocr = exists().where(
         Page.document_id == Document.id,
         OCRArtifact.page_id == Page.id,
         OCRArtifact.text.ilike(f"%{q}%"),
     ) if q else None
-    sensitive_value_match = exists().where(
-        ExtractedField.document_id == Document.id,
-        ExtractedField.is_active.is_(True),
-        ExtractedField.value.ilike(f"%{q}%"),
-        exists().where(SensitivityTag.extracted_field_id == ExtractedField.id),
-    ) if q else None
     statement = select(Document).where(Document.user_id == user.id)
     if q:
         statement = statement.where(or_(
             Document.original_filename.ilike(f"%{q}%"),
-            (searchable_ocr & ~sensitive_value_match),
+            searchable_ocr,
         ))
     if active_classification is not None:
         statement = statement.where(active_classification)
@@ -467,9 +473,25 @@ def search_documents(
         statement = statement.where(Document.uploaded_at >= uploaded_from)
     if uploaded_to:
         statement = statement.where(Document.uploaded_at <= uploaded_to)
-    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
     order = Document.uploaded_at.asc() if sort == "oldest" else Document.uploaded_at.desc()
-    documents = db.scalars(statement.order_by(order, Document.id).offset((page - 1) * page_size).limit(page_size)).all()
+    if q:
+        # Intentional V1 tradeoff: query candidates are privacy-filtered before
+        # pagination. This preserves exact totals and prevents sensitive-only
+        # matches from influencing pages, at personal-library scale. Revisit
+        # with indexed redacted search material before large-scale deployment.
+        needle = q.lower()
+        candidates = db.scalars(statement.order_by(order, Document.id)).all()
+        confirmed = [
+            document for document in candidates
+            if needle in (document.original_filename or "").lower()
+            or _document_has_nonsensitive_ocr_occurrence(db, document.id, needle)
+        ]
+        total = len(confirmed)
+        start = (page - 1) * page_size
+        documents = confirmed[start:start + page_size]
+    else:
+        total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+        documents = db.scalars(statement.order_by(order, Document.id).offset((page - 1) * page_size).limit(page_size)).all()
     items = []
     for document in documents:
         classification = db.scalar(select(ClassificationResult).where(

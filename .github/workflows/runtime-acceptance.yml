@@ -9,7 +9,7 @@ on:
       - "backend/**"
       - "frontend/**"
       - "docker-compose.yml"
-      - ".github/workflows/blank.yml"
+      - ".github/workflows/runtime-acceptance.yml"
 
 permissions:
   contents: read

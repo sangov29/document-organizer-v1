@@ -39,12 +39,23 @@ def test_analysis_serializer_queries_both_sensitive_region_tag_paths():
     assert "missing_ids" in helper_source
 
 
-def test_search_includes_ocr_text_without_matching_sensitive_field_values():
+def test_search_matches_ocr_text_at_occurrence_not_document_level():
     source = (ROOT / "api" / "documents.py").read_text()
-    assert "OCRArtifact.text.ilike" in source
-    assert "Page.document_id == Document.id" in source
-    assert "Document.user_id == user.id" in source
-    assert "searchable_ocr & ~sensitive_value_match" in source
+    tree = ast.parse(source)
+    functions = {
+        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    candidate_source = ast.unparse(functions["search_documents"])
+    assert "OCRArtifact.text.ilike" in candidate_source
+    assert "Page.document_id == Document.id" in candidate_source
+    assert "Document.user_id == user.id" in candidate_source
+    assert "sensitive_value_match" not in candidate_source
+
+    occurrence_source = ast.unparse(functions["_document_has_nonsensitive_ocr_occurrence"])
+    assert "mask_ocr_text" in occurrence_source
+    assert "Page.document_id == document_id" in occurrence_source
+    assert "needle in mask_ocr_text" in occurrence_source
+    assert "_document_has_nonsensitive_ocr_occurrence" in candidate_source
 
 
 def test_invoice_receipt_schema_extracts_versioned_bounded_fields():

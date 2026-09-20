@@ -1,4 +1,4 @@
-from app.services.sensitivity import mask_ocr_blocks
+from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text
 
 
 def test_every_repeated_signature_detection_is_concealed():
@@ -49,3 +49,18 @@ def test_account_value_is_masked_when_paddle_returns_label_and_value_in_one_bloc
     assert masked[1]["text"] == "IBAN: ••••••••••••••••••3000"
     assert "987654321012" not in str(masked)
     assert "DE89370400440532013000" not in str(masked)
+
+
+def test_masked_text_drops_concealed_substring_but_keeps_independent_occurrence():
+    text = (
+        "BANK STATEMENT\n"
+        "Account Number: 1122334488775566\n"
+        "Statement Reference: INV-8877\n"
+    )
+    masked = mask_ocr_text(text)
+    assert "8877" in masked
+    assert "INV-8877" in masked
+    assert "1122334488775566" not in masked
+
+    hidden_only = "BANK STATEMENT\nAccount Number: 9900112233448866\n"
+    assert "3448" not in mask_ocr_text(hidden_only)

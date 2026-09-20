@@ -103,6 +103,31 @@ def test_full_text_ocr_search_and_sensitive_value_exclusion(api, auth_token, run
     concealed = _search(api, auth_token, "OCR sensitive value excluded", q=raw_account, page_size=100)
     assert banking["document_id"] not in {item["id"] for item in concealed["items"]}
 
+    hidden_account = "9900112233448866"
+    hidden_marker = "3448"
+    hidden_only = _upload_and_wait(api, auth_token, run_id, "sr-ocr-hidden-only", [
+        "BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN",
+        f"Account Number: {hidden_account}",
+    ])
+    hidden_excluded = _search(
+        api, auth_token, "OCR short sensitive-only substring excluded",
+        q=hidden_marker, page_size=100,
+    )
+    assert hidden_only["document_id"] not in {item["id"] for item in hidden_excluded["items"]}
+
+    mixed_account = "1122334488775566"
+    mixed_marker = "8877"
+    mixed = _upload_and_wait(api, auth_token, run_id, "sr-ocr-mixed-occurrence", [
+        "BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN",
+        f"Account Number: {mixed_account}",
+        f"Statement Reference: INV-{mixed_marker}",
+    ])
+    mixed_found = _search(
+        api, auth_token, "OCR independent non-sensitive occurrence returned",
+        q=mixed_marker, page_size=100,
+    )
+    assert mixed["document_id"] in {item["id"] for item in mixed_found["items"]}
+
 
 def test_owner_tags_and_collections_organize_and_filter_documents(api, auth_token, run_id):
     document = _upload_and_wait(api, auth_token, run_id, "organization-user-defined", [
