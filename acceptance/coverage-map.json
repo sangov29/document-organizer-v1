@@ -95,7 +95,7 @@
         "2": "covered",
         "3": "covered",
         "4": "covered",
-        "5": "malformed PDF worker failure covered; MIME/content sniffing remains implementation-limited",
+        "5": "declared MIME/content mismatch is rejected at the API; malformed signature-valid PDF worker failure is covered",
         "6": "API preserves filename as inert data; browser execution evidence is outside API-only harness",
         "7": "202 + queued acknowledgement proxy; no UI screenshot"
       }

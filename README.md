@@ -19,7 +19,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 
 - Registration, verification, login, logout, password reset and optional TOTP
 - Server-enforced Redis sessions and owner-scoped resource access
-- PDF/JPG/PNG single and bulk ingestion
+- PDF/JPG/PNG single and bulk ingestion with declared MIME and magic-byte verification
 - Immutable MinIO objects, duplicate detection and explicit duplicate keep
 - PDF page splitting, orientation correction, quality assessment and deskew
 - PP-OCRv5 printed-text OCR with page/word lineage and bounding boxes

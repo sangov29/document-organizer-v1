@@ -40,7 +40,7 @@ Run #31 closed the two defects found by Run #30:
 
 ### Document processing
 
-- PDF/JPG/PNG single and bulk upload with size/type validation
+- PDF/JPG/PNG single and bulk upload with size, declared-type and magic-byte content validation
 - Immutable source/page storage and SHA-256 duplicate detection
 - Explicit duplicate keep with canonical linkage and audit evidence
 - Independent bulk-item failure boundaries

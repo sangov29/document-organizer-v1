@@ -33,6 +33,7 @@ from app.schemas.documents import (
 )
 from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text, mask_sensitive_value
 from app.services.reminders import REMINDER_FIELDS, parse_document_date, reminder_status
+from app.services.file_validation import content_matches_declared_type
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
 
@@ -86,6 +87,11 @@ def _read_upload(file: UploadFile) -> tuple[bytes, str]:
     data = file.file.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(status_code=413, detail="File exceeds configured upload limit")
+    if not content_matches_declared_type(data, file.content_type):
+        raise HTTPException(
+            status_code=415,
+            detail="File content does not match its declared PDF, JPG or PNG type",
+        )
     return data, hashlib.sha256(data).hexdigest()
 
 

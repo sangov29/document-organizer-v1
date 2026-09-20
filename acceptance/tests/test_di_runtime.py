@@ -46,6 +46,14 @@ def test_DI_TC_001_supported_uploads_and_safe_failures(api, evidence, auth_token
     assert unsupported.status_code == 415
     assert "PDF" in str(unsupported.json()) and "PNG" in str(unsupported.json())
 
+    spoofed = _upload(
+        api, auth_token, "DI-TC-001 spoofed PDF content", "spoofed.pdf",
+        unsupported_bytes(run_id, "di001-spoofed"), "application/pdf",
+    )
+    assert spoofed.status_code == 415
+    assert "content" in str(spoofed.json()).lower()
+    assert "declared" in str(spoofed.json()).lower()
+
     malformed = _upload(
         api, auth_token, "DI-TC-001 malformed PDF", "malformed.pdf",
         malformed_pdf_bytes(run_id, "di001-malformed"), "application/pdf",
@@ -170,6 +178,7 @@ def test_DI_TC_005_bulk_partial_failure_isolation(api, evidence, auth_token, run
         ("B.jpg", jpeg_bytes(run_id, "di005-b"), "image/jpeg"),
         ("C.txt", unsupported_bytes(run_id, "di005-c"), "text/plain"),
         ("D.png", png_bytes(run_id, "di005-d"), "image/png"),
+        ("E-spoofed.png", unsupported_bytes(run_id, "di005-spoofed"), "image/png"),
     ]
     multipart = [("files", (name, content, mime)) for name, content, mime in files]
     response = api.request("POST", "/documents/bulk", label="DI-TC-005 mixed bulk", token=auth_token, files=multipart)
@@ -177,11 +186,12 @@ def test_DI_TC_005_bulk_partial_failure_isolation(api, evidence, auth_token, run
     payload = response.json()
     outcomes = {item["filename"]: item for item in payload["items"]}
     assert outcomes["C.txt"]["outcome"] == "rejected"
+    assert outcomes["E-spoofed.png"]["outcome"] == "rejected"
     for name in ("A.pdf", "B.jpg", "D.png"):
         assert outcomes[name]["outcome"] == "queued"
         evidence.document(outcomes[name]["document"]["id"])
     assert payload["queued_count"] == 3
-    assert payload["failed_count"] == 1
+    assert payload["failed_count"] == 2
 
     # The failed item did not roll back successful siblings. Wait for each valid
     # sibling's independent ingestion job instead of relying on one batch state.
@@ -196,3 +206,4 @@ def test_DI_TC_005_bulk_partial_failure_isolation(api, evidence, auth_token, run
     ids = {row["id"] for row in listing.json()}
     assert all(outcomes[name]["document"]["id"] in ids for name in ("A.pdf", "B.jpg", "D.png"))
     assert "C.txt" not in {row["original_filename"] for row in listing.json()}
+    assert "E-spoofed.png" not in {row["original_filename"] for row in listing.json()}
