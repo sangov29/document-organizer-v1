@@ -25,3 +25,4 @@ def test_reminder_query_is_owner_scoped_and_active_field_only():
     assert "Document.user_id == user.id" in source
     assert "ExtractedField.is_active.is_(True)" in source
     assert "ExtractedField.field_name.in_(REMINDER_FIELDS)" in source
+    assert "_current_document_clause()" in source

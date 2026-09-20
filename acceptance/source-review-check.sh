@@ -50,8 +50,8 @@ assert 'if (verificationStarted.current) return' in verify_page
 assert 'verificationStarted.current = true' in verify_page
 assert 'junit-source-contracts.xml' in harness
 assert 'SOURCE_CONTRACT_EXIT -ne 0' in harness
-assert 'Evidence: GitHub Runtime Acceptance #3 under the renamed workflow' in project_status
-assert '`f126cb65c8fda81e104041792577f705d985c917`' in project_status
+assert 'Evidence: GitHub Runtime Acceptance #4 under the renamed workflow' in project_status
+assert '`a98d536ff287b16288a5f3e39290aa82abbdacdb`' in project_status
 assert 'PROJECT_STATUS.md` names the latest green run' in release_checklist
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
 from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
@@ -74,6 +74,18 @@ def _owned_document(db: Session, user: User, document_id: str) -> Document:
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     return document
+
+
+def _current_document_clause():
+    """Select only the newest immutable version in each logical document group."""
+    newer = aliased(Document)
+    logical_group = func.coalesce(Document.version_group_id, Document.id)
+    newer_group = func.coalesce(newer.version_group_id, newer.id)
+    return ~exists().where(
+        newer.user_id == Document.user_id,
+        newer_group == logical_group,
+        newer.version_number > Document.version_number,
+    )
 
 
 def audit_response(event: AuditEvent) -> AuditEventResponse:
@@ -251,8 +263,15 @@ def bulk_upload_documents(
 
 
 @router.get("", response_model=list[DocumentResponse])
-def list_documents(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    docs = db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.uploaded_at.desc())).all()
+def list_documents(
+    include_versions: bool = False,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    statement = select(Document).where(Document.user_id == user.id)
+    if not include_versions:
+        statement = statement.where(_current_document_clause())
+    docs = db.scalars(statement.order_by(Document.uploaded_at.desc())).all()
     return [doc_response(d) for d in docs]
 
 
@@ -430,6 +449,7 @@ def list_document_reminders(
             ExtractedField, ExtractedField.document_id == Document.id
         ).where(
             Document.user_id == user.id,
+            _current_document_clause(),
             ExtractedField.is_active.is_(True),
             ExtractedField.field_name.in_(REMINDER_FIELDS),
             ExtractedField.value.is_not(None),
@@ -491,6 +511,7 @@ def search_documents(
     field_value: str | None = Query(None, max_length=200),
     tag_id: uuid.UUID | None = None,
     collection_id: uuid.UUID | None = None,
+    include_versions: bool = False,
     uploaded_from: datetime | None = None,
     uploaded_to: datetime | None = None,
     sort: Literal["newest", "oldest"] = "newest",
@@ -518,6 +539,8 @@ def search_documents(
         OCRArtifact.text.ilike(f"%{q}%"),
     ) if q else None
     statement = select(Document).where(Document.user_id == user.id)
+    if not include_versions:
+        statement = statement.where(_current_document_clause())
     if q:
         statement = statement.where(or_(
             Document.original_filename.ilike(f"%{q}%"),

@@ -35,3 +35,11 @@ def test_version_history_is_ordered_and_owner_filtered():
     assert "Document.user_id == user.id" in source
     assert "Document.version_group_id == group_id" in source
     assert "Document.version_number.desc()" in source
+
+
+def test_default_library_queries_only_expose_current_versions():
+    source = (ROOT / "app" / "api" / "documents.py").read_text()
+    assert "def _current_document_clause():" in source
+    assert "newer.version_number > Document.version_number" in source
+    assert source.count("_current_document_clause()") >= 4
+    assert "include_versions: bool = False" in source

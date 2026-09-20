@@ -157,4 +157,35 @@ def test_document_replacement_preserves_version_history(api, evidence, auth_toke
         "GET", f"/documents/{first['id']}",
         label="prior version remains available", token=auth_token,
     ).status_code == 200
+
+    current_library = api.request(
+        "GET", "/documents", label="current-version library", token=auth_token,
+    )
+    assert current_library.status_code == 200
+    current_ids = {item["id"] for item in current_library.json()}
+    assert second["id"] in current_ids
+    assert first["id"] not in current_ids
+
+    complete_library = api.request(
+        "GET", "/documents?include_versions=true",
+        label="complete version library", token=auth_token,
+    )
+    complete_ids = {item["id"] for item in complete_library.json()}
+    assert {first["id"], second["id"]} <= complete_ids
+
+    current_search = api.request(
+        "GET", "/documents/search?page_size=100",
+        label="current-version search", token=auth_token,
+    )
+    assert current_search.status_code == 200
+    search_ids = {item["id"] for item in current_search.json()["items"]}
+    assert second["id"] in search_ids
+    assert first["id"] not in search_ids
+
+    complete_search = api.request(
+        "GET", "/documents/search?page_size=100&include_versions=true",
+        label="complete version search", token=auth_token,
+    )
+    complete_search_ids = {item["id"] for item in complete_search.json()["items"]}
+    assert {first["id"], second["id"]} <= complete_search_ids
     evidence.note("document-version-history", history.json())

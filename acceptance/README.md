@@ -1,9 +1,9 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #3
-under the renamed workflow is the verified baseline: 57 functional tests,
-63 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #4
+under the renamed workflow is the verified baseline: 58 functional tests,
+67 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
 all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules
@@ -19,7 +19,8 @@ all passed with zero exit codes and no known catalogue gaps.
 
 See `coverage-map.json` for the exact 50-ID mapping and step-level evidence
 boundaries. Ownership-safe retrieval, duplicate keep, preprocessing, OCR,
-classification, extraction, provenance, review, organization, search, export
+classification, extraction, provenance, review, organization, current-version search,
+immutable version history, export
 and sensitive-data controls all have executable runtime coverage.
 
 PP evidence includes page-linked quality metadata and before/after normalized
