@@ -65,6 +65,39 @@ class ReminderPreferencesResponse(ReminderPreferencesUpdate):
     pass
 
 
+class ShareCreateRequest(BaseModel):
+    expires_in_hours: int = Field(default=24, ge=1, le=720)
+
+
+class ShareCreateResponse(BaseModel):
+    id: str
+    token: str
+    expires_at: datetime
+
+
+class ShareListItemResponse(BaseModel):
+    id: str
+    expires_at: datetime
+    revoked_at: datetime | None
+    created_at: datetime
+
+
+class SharedFieldResponse(BaseModel):
+    field_name: str
+    value: str | None
+    trust_state: str
+    sensitive: bool
+    masked: bool
+
+
+class SharedDocumentResponse(BaseModel):
+    original_filename: str
+    family: str
+    version_number: int
+    expires_at: datetime
+    fields: list[SharedFieldResponse]
+
+
 class AuditEventResponse(BaseModel):
     id: str
     event_type: str

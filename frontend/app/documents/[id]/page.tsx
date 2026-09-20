@@ -44,6 +44,7 @@ type Analysis = {
 };
 
 type AuditEvent = {id:string; event_type:string; target_type:string; target_id?:string|null; metadata:Record<string,unknown>; created_at:string};
+type ShareLink = {id:string; expires_at:string; revoked_at?:string|null; created_at:string};
 
 export default function DocumentDetail() {
   const params = useParams<{id:string}>();
@@ -55,6 +56,7 @@ export default function DocumentDetail() {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [previewPages, setPreviewPages] = useState<PreviewPage[]>([]);
   const [versions, setVersions] = useState<Doc[]>([]);
+  const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
   const [showOCRBoxes, setShowOCRBoxes] = useState(false);
   const [message, setMessage] = useState('Loading document…');
 
@@ -70,6 +72,8 @@ export default function DocumentDetail() {
       setDocument(loadedDocument);
       const versionsResponse = await fetch(`${API}/api/v1/documents/${params.id}/versions`, {headers:{Authorization:`Bearer ${token}`}});
       if (versionsResponse.ok) setVersions(await versionsResponse.json());
+      const sharesResponse = await fetch(`${API}/api/v1/documents/${params.id}/shares`, {headers:{Authorization:`Bearer ${token}`}});
+      if (sharesResponse.ok) setShareLinks(await sharesResponse.json());
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const analysisResponse = await fetch(`${API}/api/v1/documents/${params.id}/analysis`, {headers:{Authorization:`Bearer ${token}`}});
         if (analysisResponse.ok) {
@@ -171,6 +175,30 @@ export default function DocumentDetail() {
     window.location.href = `/documents/${body.id}`;
   }
 
+  async function createShare() {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/shares`, {
+      method:'POST', headers:{Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
+      body:JSON.stringify({expires_in_hours:24}),
+    });
+    const body = await response.json().catch(()=>null);
+    if (!response.ok) { setMessage('Share link could not be created.'); return; }
+    const url = `${window.location.origin}/share/${body.token}`;
+    await navigator.clipboard.writeText(url);
+    setShareLinks([{id:body.id,expires_at:body.expires_at,created_at:new Date().toISOString(),revoked_at:null},...shareLinks]);
+    setMessage('24-hour read-only share link copied. Sensitive values remain masked.');
+  }
+
+  async function revokeShare(shareId:string) {
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/shares/${shareId}`, {method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
+    if (!response.ok) { setMessage('Share link could not be revoked.'); return; }
+    setShareLinks(shareLinks.map(item=>item.id===shareId?{...item,revoked_at:new Date().toISOString()}:item));
+    setMessage('Share link revoked.');
+  }
+
   const formatStatus = (value:string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
   const formatSize = (bytes:number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
@@ -182,6 +210,7 @@ export default function DocumentDetail() {
       <dl className="metadata-grid"><div><dt>File type</dt><dd>{document.mime_type}</dd></div><div><dt>File size</dt><dd>{formatSize(document.size_bytes)}</dd></div><div><dt>Uploaded</dt><dd>{new Date(document.uploaded_at).toLocaleString()}</dd></div><div className="wide"><dt>SHA-256 fingerprint</dt><dd className="hash">{document.sha256}</dd></div>{document.duplicate_of_document_id && <div className="wide"><dt>Canonical document</dt><dd className="hash">{document.duplicate_of_document_id}</dd></div>}</dl>
     </div>}
     {document && <section className="panel version-panel"><div><span className="panel-kicker">Document lifecycle</span><h2>Versions</h2><p className="muted">Upload a revised scan without overwriting this immutable version.</p><form onSubmit={uploadReplacement}><label>Replacement file<input name="file" type="file" accept="application/pdf,image/jpeg,image/png" required/></label><button type="submit">Upload as new version</button></form></div><div><h3>Version history</h3><div className="version-list">{versions.map(item=><Link key={item.id} className={item.id===document.id ? 'current-version' : ''} href={`/documents/${item.id}`}><strong>Version {item.version_number}</strong><span>{item.original_filename}</span><small>{new Date(item.uploaded_at).toLocaleString()}</small></Link>)}</div></div></section>}
+    {document && <section className="panel"><span className="panel-kicker">Controlled access</span><h2>Read-only sharing</h2><p className="muted">Create a 24-hour link containing classification and structured fields only. Sensitive values stay masked; source files, OCR text and images are never shared.</p><button type="button" onClick={createShare}>Create and copy link</button><div className="share-list">{shareLinks.map(item=><article key={item.id}><div><strong>{item.revoked_at ? 'Revoked' : new Date(item.expires_at) <= new Date() ? 'Expired' : 'Active'}</strong><p className="muted">Expires {new Date(item.expires_at).toLocaleString()}</p></div>{!item.revoked_at && new Date(item.expires_at) > new Date() && <button type="button" className="danger compact" onClick={()=>revokeShare(item.id)}>Revoke</button>}</article>)}</div></section>}
     {analysis && <section aria-labelledby="analysis-heading">
       <div className="section-heading analysis-title"><div><p className="eyebrow">AI results</p><h2 id="analysis-heading">Document analysis</h2></div><span className="analysis-count">{analysis.fields.length} fields found</span></div>
       <div className="classification-card" data-testid="classification">

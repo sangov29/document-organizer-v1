@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
+from app.api.shares import router as shares_router
 from app.services.storage import storage
 
 app = FastAPI(title="Intelligent Personal Document Organizer", version="0.1.0")
@@ -14,6 +15,7 @@ app.add_middleware(
 )
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
+app.include_router(shares_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

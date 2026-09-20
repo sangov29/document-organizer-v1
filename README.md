@@ -22,6 +22,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 - PDF/JPG/PNG single and bulk ingestion with declared MIME and magic-byte verification
 - Immutable MinIO objects, duplicate detection and explicit duplicate keep
 - Immutable replacement versions with navigable lineage and retained prior scans
+- Revocable, expiring read-only share links with masked structured fields and no raw-file access
 - PDF page splitting, orientation correction, quality assessment and deskew
 - PP-OCRv5 printed-text OCR with page/word lineage and bounding boxes
 - Seven known document families plus explicit `unknown`
@@ -38,7 +39,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 
 ## Architecture
 
-The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 15 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0011`.
+The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 16 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0012`.
 
 PaddleOCR is the default OCR provider. The worker uses the CPU-oriented
 `PP-OCRv5_mobile_det` and English `en_PP-OCRv5_mobile_rec` models. Page

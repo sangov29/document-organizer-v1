@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 
 from sqlalchemy import select
@@ -8,7 +9,7 @@ from app.db.session import SessionLocal
 from app.models import Document, Page, PreprocessingResult
 from app.services.storage import storage
 from conftest import extract_token_from_mail, login, wait_for_ingestion, wait_for_mail_text
-from fixtures import png_bytes
+from fixtures import document_png, png_bytes
 
 
 def test_document_deletion_and_owner_visible_audit(
@@ -189,3 +190,72 @@ def test_document_replacement_preserves_version_history(api, evidence, auth_toke
     complete_search_ids = {item["id"] for item in complete_search.json()["items"]}
     assert {first["id"], second["id"]} <= complete_search_ids
     evidence.note("document-version-history", history.json())
+
+
+def test_time_limited_share_is_masked_revocable_and_non_enumerating(api, evidence, auth_token, run_id):
+    uploaded = api.request(
+        "POST", "/documents", label="share banking upload", token=auth_token,
+        files={"file": ("shared-bank.png", document_png(run_id, "share-bank", lines=[
+            "BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN",
+            "Bank Name: Example Community Bank", "Account Holder: Share Test",
+            "Account Number: 555566667777", "Statement Date: 05 September 2026",
+        ]), "image/png")},
+    )
+    assert uploaded.status_code == 202
+    document_id = uploaded.json()["id"]
+    evidence.document(document_id)
+    wait_for_ingestion(document_id)
+
+    created = api.request(
+        "POST", f"/documents/{document_id}/shares",
+        label="create time-limited share", token=auth_token,
+        json={"expires_in_hours": 24},
+    )
+    assert created.status_code == 201
+    share = created.json()
+    assert share["id"] and share["token"] and share["expires_at"]
+
+    public = api.request(
+        "GET", f"/shares/{share['token']}", label="read masked public share",
+    )
+    assert public.status_code == 200
+    assert public.headers["cache-control"] == "no-store"
+    public_text = json.dumps(public.json())
+    assert public.json()["family"] == "banking"
+    assert "555566667777" not in public_text
+    account = {item["field_name"]: item for item in public.json()["fields"]}["account_number"]
+    assert account["sensitive"] is True and account["masked"] is True
+    assert account["value"] != "555566667777"
+
+    listed = api.request(
+        "GET", f"/documents/{document_id}/shares",
+        label="list owner shares", token=auth_token,
+    )
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == share["id"]
+    assert share["token"] not in json.dumps(listed.json())
+
+    revoked = api.request(
+        "DELETE", f"/documents/{document_id}/shares/{share['id']}",
+        label="revoke share", token=auth_token,
+    )
+    assert revoked.status_code == 204
+    revoked_read = api.request(
+        "GET", f"/shares/{share['token']}", label="revoked share denied",
+    )
+    missing_read = api.request(
+        "GET", f"/shares/{uuid.uuid4().hex}", label="missing share denied",
+    )
+    assert revoked_read.status_code == missing_read.status_code == 404
+    assert revoked_read.json() == missing_read.json()
+
+    audit = api.request(
+        "GET", f"/documents/{document_id}/audit",
+        label="share lifecycle audit", token=auth_token,
+    )
+    audit_text = json.dumps(audit.json())
+    actions = {event["metadata"].get("action") for event in audit.json()["events"]}
+    assert {"share_created", "share_accessed", "share_revoked"} <= actions
+    assert share["token"] not in audit_text
+    assert "555566667777" not in audit_text
+    evidence.note("share-link-lifecycle", {"document_id": document_id, "share_id": share["id"]})
