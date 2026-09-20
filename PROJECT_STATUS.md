@@ -1,8 +1,8 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 19 September 2026  
-Verified commit: `1ca64ec4d53c1026ae8628f3b79883eb0fba0b17`  
-Evidence: GitHub Runtime Acceptance Run #63
+Verified commit: `fed1de021506b0069c8f39d8083bca4652baafce`  
+Evidence: GitHub Runtime Acceptance #1 under the renamed workflow (project sequence Run #65)
 
 ## Current result
 
@@ -13,10 +13,10 @@ Evidence: GitHub Runtime Acceptance Run #63
 - Labelled deterministic OCR evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
 - `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
-- Backend source/model contracts: **56 passed**, with separate mandatory JUnit evidence
+- Backend source/model contracts: **60 passed**, with separate mandatory JUnit evidence
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Run #63 confirms owner-scoped expiry/due-date reminders, status boundaries and dashboard presentation. Run #62 confirms owner-scoped tags and collections, the private corpus-intake CLI contract and the sequential `0009` migration after Run #61 exposed and corrected an Alembic import-order defect. Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
+Runtime Acceptance #1 under the renamed workflow (project sequence Run #65) confirms occurrence-level sensitive OCR search filtering. Project Run #64 confirms per-owner reminder preferences and migration `0010`; Run #63 confirms owner-scoped expiry/due-date reminders, status boundaries and dashboard presentation. Run #62 confirms owner-scoped tags and collections, the private corpus-intake CLI contract and the sequential `0009` migration after Run #61 exposed and corrected an Alembic import-order defect. Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
 build, Docker development-origin configuration, hydration guard and single-flight
 email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction after
 Run #51 was blocked before startup by a nonexistent container tag.
@@ -53,7 +53,7 @@ Run #31 closed the two defects found by Run #30:
 - Organization, owner-scoped search, date sorting and pagination
 - Owner-scoped full-text OCR search, with sensitivity-tagged extracted values excluded from OCR matching
 - User-defined, owner-scoped tags and collections with document filtering
-- Owner-scoped in-app expiry and due-date reminders; per-owner enable/window preferences are pending Run #64 evidence
+- Owner-scoped in-app expiry and due-date reminders with per-owner enable/window preferences
 - Stable JSON and normalized multi-document CSV export
 - Permanent owner-controlled deletion of document database and object-storage data while retaining a value-free audit record
 - Owner-wide and per-document audit history plus versioned JSON audit export
@@ -62,11 +62,11 @@ Run #31 closed the two defects found by Run #30:
 ### Data model and migrations
 
 - **15 persisted domain entities**, including `PreprocessingResult`, `Tag` and `Collection`
-- Sequential Alembic chain: `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009`; `0010` reminder preferences are pending Run #64 evidence
+- Sequential Alembic chain: `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010`
 
 ## Acceptance evidence boundary
 
-Run #63 proves the existing deterministic V1 behavior against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim. The 57-test functional result includes owner-scoped reminders, tags and collections; the source-contract result includes reminder logic and the corpus-intake CLI contract.
+Runtime Acceptance #1 under the renamed workflow proves the existing deterministic V1 behavior at commit `fed1de0` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`; the repository-wide project sequence calls this Run #65. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim. The 57-test functional result includes occurrence-level privacy-safe search, owner-scoped reminders, tags and collections; the 60-test source-contract result includes reminder preferences and the corpus-intake CLI contract.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 

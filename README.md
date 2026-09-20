@@ -4,7 +4,7 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance Run #63 is the current evidence baseline:
+GitHub Runtime Acceptance #1 under the renamed workflow (project sequence Run #65) is the current evidence baseline:
 
 - **57/57 functional tests passed**
 - **50 exact catalogue IDs covered**
