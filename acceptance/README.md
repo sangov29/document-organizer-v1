@@ -1,9 +1,9 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #1
-under the renamed workflow (project sequence Run #65) is the verified baseline:
-57 functional tests, 60 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #3
+under the renamed workflow is the verified baseline: 57 functional tests,
+63 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
 all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules

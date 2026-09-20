@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { API } from '../../../lib/api';
@@ -7,6 +7,7 @@ import { API } from '../../../lib/api';
 type Doc = {
   id:string; original_filename:string; mime_type:string; status:string;
   size_bytes:number; sha256:string; uploaded_at:string; duplicate_of_document_id?:string|null;
+  replaces_document_id?:string|null; version_group_id?:string|null; version_number:number;
 };
 
 type Provenance = {
@@ -53,6 +54,7 @@ export default function DocumentDetail() {
   const [revealedRegions, setRevealedRegions] = useState<Record<string,string>>({});
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [previewPages, setPreviewPages] = useState<PreviewPage[]>([]);
+  const [versions, setVersions] = useState<Doc[]>([]);
   const [showOCRBoxes, setShowOCRBoxes] = useState(false);
   const [message, setMessage] = useState('Loading document…');
 
@@ -64,7 +66,10 @@ export default function DocumentDetail() {
       if (response.status === 401) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; }
       if (response.status === 404) { setMessage('Document not found.'); return; }
       if (!response.ok) { setMessage('Document could not be loaded.'); return; }
-      setDocument(await response.json());
+      const loadedDocument = await response.json();
+      setDocument(loadedDocument);
+      const versionsResponse = await fetch(`${API}/api/v1/documents/${params.id}/versions`, {headers:{Authorization:`Bearer ${token}`}});
+      if (versionsResponse.ok) setVersions(await versionsResponse.json());
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const analysisResponse = await fetch(`${API}/api/v1/documents/${params.id}/analysis`, {headers:{Authorization:`Bearer ${token}`}});
         if (analysisResponse.ok) {
@@ -153,6 +158,19 @@ export default function DocumentDetail() {
     setMessage(response.status === 503 ? 'Storage cleanup is temporarily unavailable. The document was not deleted; please retry.' : 'Document could not be deleted.');
   }
 
+  async function uploadReplacement(e:FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+    const form = e.currentTarget;
+    const response = await fetch(`${API}/api/v1/documents/${params.id}/versions`, {
+      method:'POST', headers:{Authorization:`Bearer ${token}`}, body:new FormData(form),
+    });
+    const body = await response.json().catch(()=>null);
+    if (!response.ok) { setMessage(typeof body?.detail === 'string' ? body.detail : 'Replacement could not be uploaded.'); return; }
+    window.location.href = `/documents/${body.id}`;
+  }
+
   const formatStatus = (value:string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
   const formatSize = (bytes:number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
@@ -160,9 +178,10 @@ export default function DocumentDetail() {
     <div className="page-heading detail-heading"><div><p className="eyebrow">Review workspace</p><h1>Document details</h1><p className="muted">Inspect classification, verify extracted fields and trace every result.</p></div>{document && <div className="heading-actions"><button type="button" className="secondary" onClick={downloadJson}>Download JSON</button><button type="button" className="danger" onClick={deleteDocument}>Delete document</button></div>}</div>
     {message && <p role="status" className="notice">{message}</p>}
     {document && <div className="document-summary" data-testid="document-detail">
-      <div className="summary-title"><span className="file-symbol large">DOC</span><div><h2>{document.original_filename}</h2><div className="summary-chips"><span className={`status status-${document.status}`}>{formatStatus(document.status)}</span>{document.duplicate_of_document_id && <span className="status">Kept duplicate</span>}</div></div></div>
+      <div className="summary-title"><span className="file-symbol large">DOC</span><div><h2>{document.original_filename}</h2><div className="summary-chips"><span className={`status status-${document.status}`}>{formatStatus(document.status)}</span><span className="status">Version {document.version_number}</span>{document.duplicate_of_document_id && <span className="status">Kept duplicate</span>}</div></div></div>
       <dl className="metadata-grid"><div><dt>File type</dt><dd>{document.mime_type}</dd></div><div><dt>File size</dt><dd>{formatSize(document.size_bytes)}</dd></div><div><dt>Uploaded</dt><dd>{new Date(document.uploaded_at).toLocaleString()}</dd></div><div className="wide"><dt>SHA-256 fingerprint</dt><dd className="hash">{document.sha256}</dd></div>{document.duplicate_of_document_id && <div className="wide"><dt>Canonical document</dt><dd className="hash">{document.duplicate_of_document_id}</dd></div>}</dl>
     </div>}
+    {document && <section className="panel version-panel"><div><span className="panel-kicker">Document lifecycle</span><h2>Versions</h2><p className="muted">Upload a revised scan without overwriting this immutable version.</p><form onSubmit={uploadReplacement}><label>Replacement file<input name="file" type="file" accept="application/pdf,image/jpeg,image/png" required/></label><button type="submit">Upload as new version</button></form></div><div><h3>Version history</h3><div className="version-list">{versions.map(item=><Link key={item.id} className={item.id===document.id ? 'current-version' : ''} href={`/documents/${item.id}`}><strong>Version {item.version_number}</strong><span>{item.original_filename}</span><small>{new Date(item.uploaded_at).toLocaleString()}</small></Link>)}</div></div></section>}
     {analysis && <section aria-labelledby="analysis-heading">
       <div className="section-heading analysis-title"><div><p className="eyebrow">AI results</p><h2 id="analysis-heading">Document analysis</h2></div><span className="analysis-count">{analysis.fields.length} fields found</span></div>
       <div className="classification-card" data-testid="classification">

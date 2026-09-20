@@ -116,3 +116,45 @@ def test_document_deletion_and_owner_visible_audit(
     assert reuploaded.json()["id"] != document_id
     evidence.document(reuploaded.json()["id"])
     evidence.note("document-lifecycle", {"deleted": document_id, "reuploaded": reuploaded.json()["id"]})
+
+
+def test_document_replacement_preserves_version_history(api, evidence, auth_token, run_id):
+    original = api.request(
+        "POST", "/documents", label="version original", token=auth_token,
+        files={"file": ("policy-v1.png", png_bytes(run_id, "version-v1"), "image/png")},
+    )
+    assert original.status_code == 202
+    first = original.json()
+    evidence.document(first["id"])
+    assert first["version_number"] == 1
+    assert first["replaces_document_id"] is None
+    wait_for_ingestion(first["id"])
+
+    replacement = api.request(
+        "POST", f"/documents/{first['id']}/versions",
+        label="version replacement", token=auth_token,
+        files={"file": ("policy-v2.png", png_bytes(run_id, "version-v2"), "image/png")},
+    )
+    assert replacement.status_code == 202
+    second = replacement.json()
+    evidence.document(second["id"])
+    assert second["id"] != first["id"]
+    assert second["sha256"] != first["sha256"]
+    assert second["replaces_document_id"] == first["id"]
+    assert second["version_group_id"] == first["id"]
+    assert second["version_number"] == 2
+    wait_for_ingestion(second["id"])
+
+    history = api.request(
+        "GET", f"/documents/{second['id']}/versions",
+        label="version history", token=auth_token,
+    )
+    assert history.status_code == 200
+    assert [(item["id"], item["version_number"]) for item in history.json()] == [
+        (second["id"], 2), (first["id"], 1),
+    ]
+    assert api.request(
+        "GET", f"/documents/{first['id']}",
+        label="prior version remains available", token=auth_token,
+    ).status_code == 200
+    evidence.note("document-version-history", history.json())

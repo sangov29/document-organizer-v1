@@ -55,6 +55,11 @@ class Document(Base):
     duplicate_of_document_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("documents.id", ondelete="SET NULL"), index=True
     )
+    replaces_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), index=True
+    )
+    version_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    version_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[ProcessingStatus] = mapped_column(Enum(ProcessingStatus, name="processing_status"), default=ProcessingStatus.QUEUED)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
@@ -66,6 +71,7 @@ class Document(Base):
             "uq_document_user_hash_canonical", "user_id", "sha256", unique=True,
             postgresql_where=text("duplicate_of_document_id IS NULL"),
         ),
+        CheckConstraint("version_number >= 1", name="ck_document_version_number"),
     )
 
 

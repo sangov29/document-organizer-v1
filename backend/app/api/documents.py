@@ -49,6 +49,9 @@ def doc_response(doc: Document) -> DocumentResponse:
         id=str(doc.id), original_filename=doc.original_filename, mime_type=doc.mime_type,
         size_bytes=doc.size_bytes, sha256=doc.sha256, status=doc.status.value,
         duplicate_of_document_id=(str(doc.duplicate_of_document_id) if doc.duplicate_of_document_id else None),
+        replaces_document_id=(str(doc.replaces_document_id) if doc.replaces_document_id else None),
+        version_group_id=(str(doc.version_group_id) if doc.version_group_id else None),
+        version_number=doc.version_number,
         uploaded_at=doc.uploaded_at,
         tags=[{"id": str(tag.id), "name": tag.name} for tag in sorted(doc.tags, key=lambda item: item.name.casefold())],
         collections=[{"id": str(item.id), "name": item.name} for item in sorted(doc.collections, key=lambda item: item.name.casefold())],
@@ -102,6 +105,12 @@ def _persist_upload(
     db: Session,
     user: User,
     duplicate_action: Literal["reject", "keep"] = "reject",
+    *,
+    replaces_document_id: uuid.UUID | None = None,
+    version_group_id: uuid.UUID | None = None,
+    version_number: int = 1,
+    inherited_tags: list[Tag] | None = None,
+    inherited_collections: list[Collection] | None = None,
 ) -> Document:
     existing = db.scalar(
         select(Document).where(
@@ -124,6 +133,11 @@ def _persist_upload(
         mime_type=file.content_type, object_key=object_key, sha256=digest,
         size_bytes=len(data), status=ProcessingStatus.QUEUED,
         duplicate_of_document_id=(existing.id if existing else None),
+        replaces_document_id=replaces_document_id,
+        version_group_id=version_group_id,
+        version_number=version_number,
+        tags=list(inherited_tags or []),
+        collections=list(inherited_collections or []),
     )
     db.add(doc)
     db.flush()
@@ -135,7 +149,13 @@ def _persist_upload(
     db.add(AuditEvent(
         user_id=user.id, event_type=AuditEventType.UPLOAD,
         target_type="document", target_id=str(doc.id),
-        metadata_json={"mime_type": file.content_type, "size_bytes": len(data)},
+        metadata_json={
+            "mime_type": file.content_type,
+            "size_bytes": len(data),
+            "version_number": version_number,
+            "replaces_document_id": str(replaces_document_id) if replaces_document_id else None,
+            "version_group_id": str(version_group_id) if version_group_id else None,
+        },
     ))
     if existing:
         db.add(AuditEvent(
@@ -234,6 +254,50 @@ def bulk_upload_documents(
 def list_documents(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     docs = db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.uploaded_at.desc())).all()
     return [doc_response(d) for d in docs]
+
+
+@router.post("/{document_id}/versions", response_model=DocumentResponse, status_code=202)
+def replace_document_with_new_version(
+    document_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    previous = _owned_document(db, user, document_id)
+    data, digest = _read_upload(file)
+    group_id = previous.version_group_id or previous.id
+    maximum = db.scalar(
+        select(func.max(Document.version_number)).where(
+            Document.user_id == user.id,
+            or_(Document.id == group_id, Document.version_group_id == group_id),
+        )
+    ) or previous.version_number
+    document = _persist_upload(
+        file, data, digest, db, user,
+        replaces_document_id=previous.id,
+        version_group_id=group_id,
+        version_number=maximum + 1,
+        inherited_tags=list(previous.tags),
+        inherited_collections=list(previous.collections),
+    )
+    return doc_response(document)
+
+
+@router.get("/{document_id}/versions", response_model=list[DocumentResponse])
+def list_document_versions(
+    document_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    document = _owned_document(db, user, document_id)
+    group_id = document.version_group_id or document.id
+    versions = db.scalars(
+        select(Document).where(
+            Document.user_id == user.id,
+            or_(Document.id == group_id, Document.version_group_id == group_id),
+        ).order_by(Document.version_number.desc(), Document.uploaded_at.desc())
+    ).all()
+    return [doc_response(item) for item in versions]
 
 
 @router.get("/tags", response_model=list[NamedResourceResponse])

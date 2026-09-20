@@ -10,6 +10,9 @@ class DocumentResponse(BaseModel):
     size_bytes: int
     sha256: str
     duplicate_of_document_id: str | None = None
+    replaces_document_id: str | None = None
+    version_group_id: str | None = None
+    version_number: int = 1
     status: str
     uploaded_at: datetime
     tags: list[dict] = Field(default_factory=list)
