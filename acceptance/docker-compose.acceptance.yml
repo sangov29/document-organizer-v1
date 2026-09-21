@@ -32,6 +32,12 @@ services:
       # The timing probe intentionally performs 112 failed logins. Rate-limit
       # behavior has separate contracts; this override preserves that probe.
       LOGIN_RATE_LIMIT: "1000"
+      # Deliberately low so the share-throttling regression test can trigger
+      # a genuine 429 and window recovery in seconds rather than minutes.
+      # This is a test-environment override only -- see core/config.py for
+      # the real V1 defaults (30 requests / 60 seconds).
+      SHARE_VIEW_RATE_LIMIT: "3"
+      SHARE_VIEW_RATE_WINDOW_SECONDS: "2"
     depends_on:
       mailpit:
         condition: service_healthy

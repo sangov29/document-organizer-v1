@@ -46,3 +46,26 @@ def test_share_ui_describes_privacy_boundary_and_supports_revocation():
     assert "Sensitive values stay masked" in detail
     assert "revokeShare" in detail
     assert "invalid, expired or revoked" in public
+
+
+def test_public_share_view_is_rate_limited_per_token_before_validity_checks():
+    source = (ROOT / "app" / "api" / "shares.py").read_text()
+    view_fn = source.split('@router.get("/shares/{token}"', 1)[1]
+    rate_limit_pos = view_fn.find('rate_limiter.allowed(')
+    validity_pos = view_fn.find("raw_link_id, secret = token.split")
+    assert rate_limit_pos != -1 and validity_pos != -1
+    assert rate_limit_pos < validity_pos, (
+        "throttling must run before token parsing so malformed/forged "
+        "tokens are throttled identically to real ones"
+    )
+    assert '"share-view", token' in view_fn
+    assert "settings.share_view_rate_limit" in view_fn
+    assert "settings.share_view_rate_window_seconds" in view_fn
+    assert "status_code=429" in view_fn
+    assert 'headers={"Retry-After"' in view_fn
+    # No raw token or client data (IP, etc.) may become a Redis key itself:
+    # shares.py must only ever reach Redis through the existing rate_limiter
+    # abstraction, whose key() sha256-hashes the subject internally, never
+    # by touching redis directly with an unhashed value.
+    assert "import redis" not in source
+    assert "redis.Redis" not in source

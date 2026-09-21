@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 import uuid
 
 from sqlalchemy import select
@@ -264,3 +266,138 @@ def test_time_limited_share_is_masked_revocable_and_non_enumerating(api, evidenc
     assert share["token"] not in audit_text
     assert "555566667777" not in audit_text
     evidence.note("share-link-lifecycle", {"document_id": document_id, "share_id": share["id"]})
+
+
+def test_share_view_is_rate_limited_per_token_with_window_recovery_and_isolation(
+    api, evidence, auth_token, run_id
+):
+    def _create_share(marker):
+        uploaded = api.request(
+            "POST", "/documents", label=f"share-throttle upload {marker}", token=auth_token,
+            files={"file": (f"throttle-{marker}.png", document_png(
+                run_id, f"share-throttle-{marker}",
+                lines=["UTILITY BILL", "ELECTRICITY SERVICE", f"Provider: Throttle {marker}"],
+            ), "image/png")},
+        )
+        assert uploaded.status_code == 202
+        document_id = uploaded.json()["id"]
+        evidence.document(document_id)
+        wait_for_ingestion(document_id)
+        created = api.request(
+            "POST", f"/documents/{document_id}/shares",
+            label=f"create share {marker}", token=auth_token,
+            json={"expires_in_hours": 24},
+        )
+        assert created.status_code == 201
+        return created.json()["token"]
+
+    token_a = _create_share("a")
+    token_b = _create_share("b")
+
+    # Valid access + threshold enforcement. The acceptance environment pins
+    # SHARE_VIEW_RATE_LIMIT=3 / SHARE_VIEW_RATE_WINDOW_SECONDS=2 (see
+    # docker-compose.acceptance.yml) specifically so this is exercised in
+    # seconds against the real limiter rather than needing the V1 default
+    # (30/60s) or a mocked clock.
+    for attempt in range(3):
+        ok = api.request("GET", f"/shares/{token_a}", label=f"share view under threshold #{attempt + 1}")
+        assert ok.status_code == 200
+
+    throttled = api.request("GET", f"/shares/{token_a}", label="share view over threshold")
+    assert throttled.status_code == 429
+    assert "Retry-After" in throttled.headers
+    assert int(throttled.headers["Retry-After"]) > 0
+
+    # Isolation between links: a separate share link has its own independent
+    # budget and is unaffected by link A's limit being exhausted.
+    isolated = api.request("GET", f"/shares/{token_b}", label="different share link unaffected")
+    assert isolated.status_code == 200
+
+    # Window recovery: once the (short, test-only) window elapses, the same
+    # link is viewable again without needing a new share to be created.
+    time.sleep(2.5)
+    recovered = api.request("GET", f"/shares/{token_a}", label="share view after window recovery")
+    assert recovered.status_code == 200
+
+    # Malformed tokens have the same budget shape because limiting happens
+    # before parsing. Once the fixed window expires they return to the normal
+    # non-enumerating 404—not 200—and a rejected request must not refresh the
+    # TTL into an indefinitely sliding window.
+    malformed = "not-a-valid-share-token"
+    for attempt in range(3):
+        missing = api.request(
+            "GET", f"/shares/{malformed}", label=f"malformed share under threshold #{attempt + 1}",
+        )
+        assert missing.status_code == 404
+    malformed_throttled = api.request("GET", f"/shares/{malformed}", label="malformed share throttled")
+    assert malformed_throttled.status_code == 429
+    time.sleep(1.0)
+    still_throttled = api.request("GET", f"/shares/{malformed}", label="malformed share remains throttled")
+    assert still_throttled.status_code == 429
+    time.sleep(1.5)
+    malformed_recovered = api.request("GET", f"/shares/{malformed}", label="malformed share after recovery")
+    assert malformed_recovered.status_code == 404
+
+    evidence.note("share-view-throttling", {
+        "threshold_enforced": True,
+        "isolation_confirmed": True,
+        "window_recovery_confirmed": True,
+        "malformed_token_recovered_to_404": True,
+        "rejected_request_did_not_extend_window": True,
+    })
+
+
+def test_concurrent_version_uploads_cannot_create_duplicate_version_numbers(
+    api, evidence, auth_token, run_id
+):
+    original = api.request(
+        "POST", "/documents", label="version-race original", token=auth_token,
+        files={"file": ("race-v1.png", png_bytes(run_id, "version-race"), "image/png")},
+    )
+    assert original.status_code == 202
+    document_id = original.json()["id"]
+    evidence.document(document_id)
+    wait_for_ingestion(document_id)
+
+    results: list = [None, None]
+
+    def _upload_version(index):
+        results[index] = api.request(
+            "POST", f"/documents/{document_id}/versions",
+            label=f"concurrent version upload {index}", token=auth_token,
+            files={"file": (f"race-v{index}.png", png_bytes(run_id, f"version-race-{index}"), "image/png")},
+        )
+
+    threads = [threading.Thread(target=_upload_version, args=(index,)) for index in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    # Whether the two requests actually raced at the DB level is timing-
+    # dependent and not something this test can force deterministically.
+    # What must always hold, race or no race, is the safety invariant the
+    # uq_document_version_group_number constraint exists to guarantee: no
+    # two documents in the same version group ever end up with the same
+    # version_number. A legitimate conflict must surface as 409, never 500.
+    statuses = {response.status_code for response in results}
+    assert statuses <= {202, 409}, f"unexpected status codes from concurrent uploads: {statuses}"
+    assert 202 in statuses, "at least one concurrent version upload must succeed"
+
+    for response in results:
+        if response.status_code == 202:
+            evidence.document(response.json()["id"])
+
+    history = api.request(
+        "GET", f"/documents/{document_id}/versions",
+        label="version history after concurrent uploads", token=auth_token,
+    )
+    assert history.status_code == 200
+    numbers = [item["version_number"] for item in history.json()]
+    assert len(numbers) == len(set(numbers)), (
+        f"duplicate version_number values were created under concurrency: {numbers}"
+    )
+
+    evidence.note("concurrent-version-uploads", {
+        "statuses": sorted(statuses), "version_numbers": sorted(numbers),
+    })

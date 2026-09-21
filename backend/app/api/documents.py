@@ -34,6 +34,7 @@ from app.schemas.documents import (
 from app.services.sensitivity import mask_ocr_blocks, mask_ocr_text, mask_sensitive_value
 from app.services.reminders import REMINDER_FIELDS, parse_document_date, reminder_status
 from app.services.file_validation import content_matches_declared_type
+from app.services.integrity_conflicts import upload_conflict_detail
 from app.services.storage import storage
 from app.workers.celery_app import bootstrap_pipeline
 
@@ -181,10 +182,10 @@ def _persist_upload(
         ))
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
         storage.delete(object_key)
-        raise HTTPException(status_code=409, detail={"code": "duplicate_document"})
+        raise HTTPException(status_code=409, detail=upload_conflict_detail(exc))
     except Exception:
         db.rollback()
         storage.delete(object_key)

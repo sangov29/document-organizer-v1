@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
     AuditEvent, ClassificationResult, Document, ExtractedField, SensitivityTag,
@@ -19,6 +20,7 @@ from app.schemas.documents import (
     ShareCreateRequest, ShareCreateResponse, ShareListItemResponse,
     SharedDocumentResponse, SharedFieldResponse,
 )
+from app.services.rate_limiter import rate_limiter
 from app.services.sensitivity import mask_sensitive_value
 
 router = APIRouter(tags=["shares"])
@@ -120,6 +122,19 @@ def revoke_document_share(
 @router.get("/shares/{token}", response_model=SharedDocumentResponse)
 def view_shared_document(token: str, response: Response, db: Session = Depends(get_db)):
     response.headers["Cache-Control"] = "no-store"
+    # Keyed on the presented token itself (hashed internally by
+    # RateLimiter.key -- no raw token or client data ever becomes part of
+    # the Redis key), so each link has its own independent budget: hammering
+    # one shared link cannot exhaust or affect any other link's limit, and
+    # this check runs before any validity check so malformed/forged tokens
+    # are throttled identically to real ones.
+    if not rate_limiter.allowed(
+        "share-view", token, settings.share_view_rate_limit, settings.share_view_rate_window_seconds,
+    ):
+        raise HTTPException(
+            status_code=429, detail="Too many requests for this share link",
+            headers={"Retry-After": str(settings.share_view_rate_window_seconds)},
+        )
     now = datetime.now(timezone.utc)
     try:
         raw_link_id, secret = token.split(".", 1)

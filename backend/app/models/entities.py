@@ -72,6 +72,17 @@ class Document(Base):
             postgresql_where=text("duplicate_of_document_id IS NULL"),
         ),
         CheckConstraint("version_number >= 1", name="ck_document_version_number"),
+        # This expression must match the logical-group rule used by the API:
+        # a root document's own id is its group id, while later versions store
+        # that root id in version_group_id. Including the root in the unique
+        # key prevents a child from colliding with version 1 as well as
+        # preventing concurrent children from claiming the same number.
+        Index(
+            "uq_document_version_group_number",
+            text("COALESCE(version_group_id, id)"),
+            "version_number",
+            unique=True,
+        ),
     )
 
 
