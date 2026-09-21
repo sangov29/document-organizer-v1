@@ -1,25 +1,26 @@
 # Build Status — Verified V1 Runtime Baseline
 
-Baseline date: 20 September 2026  
-Verified commit: `ecc3b71dbbe5d3563120e96b511f8a36653958e3`  
-Evidence: GitHub Runtime Acceptance #5 under the renamed workflow
+Baseline date: 21 September 2026  
+Verified commit: `cf0fa400e33ab66616f6b9034a041b456fbd32ff`  
+Evidence: GitHub Runtime Acceptance #10 under the renamed workflow  
+Evidence run ID: `20260921T121220Z-21af59b5`  
+Evidence SHA-256: `0b01e167eadee90e95740025fb6892ddf02a50ccb201c7ed0a19b241b0efd945`
 
 ## Current result
 
-- Functional runtime acceptance: **58 passed, 0 failed, 0 errors, 0 skipped**
+- Functional runtime acceptance: **61 passed, 0 failed, 0 errors, 0 skipped**
 - Frozen catalogue coverage: **50 exact IDs** across UM, DI, PP, CR, CL, EX, PR, VA, SR, OR, IN and SEC
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
-- Labelled deterministic OCR evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
-- `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
+- Labelled deterministic OCR regression evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
+- Backend source/model contracts: **79 passed**, with separate mandatory JUnit evidence
+- `source_contract_exit=0`, `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
-- Backend source/model contracts: **69 passed**, with separate mandatory JUnit evidence
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Runtime Acceptance #3 confirms declared MIME/magic-byte upload verification and safe mixed-bulk rejection. Runtime Acceptance #1 under the renamed workflow (project sequence Run #65) confirms occurrence-level sensitive OCR search filtering. Project Run #64 confirms per-owner reminder preferences and migration `0010`; Run #63 confirms owner-scoped expiry/due-date reminders, status boundaries and dashboard presentation. Run #62 confirms owner-scoped tags and collections, the private corpus-intake CLI contract and the sequential `0009` migration after Run #61 exposed and corrected an Alembic import-order defect. Run #57 additionally confirms Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend
-build, Docker development-origin configuration, hydration guard and single-flight
-email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction after
-Run #51 was blocked before startup by a nonexistent container tag.
+Runtime Acceptance #10 confirms that owner share creation waits for completed structured analysis and that public share links resolve only after their masked classification/field projection is available. It closes the readiness-contract failure found by Run #9 without weakening uniform public 404 behavior for invalid, expired, revoked or forged tokens.
+
+Run #9 established privacy-safe public share throttling and race-safe document version numbering, then exposed the share-readiness defect. Runs #6–#8 exercised and corrected composite share-token handling. Runtime Acceptance #5 confirmed document version history; #4 confirmed content-sniffing; #3 confirmed declared MIME/magic-byte upload verification and safe mixed-bulk rejection. Runtime Acceptance #1 under the renamed workflow (project sequence Run #65) confirmed occurrence-level sensitive OCR search filtering. Project Run #64 confirmed per-owner reminder preferences; Run #63 confirmed owner-scoped expiry/due-date reminders; Run #62 confirmed owner-scoped tags and collections plus the private corpus-intake CLI after Run #61 exposed and corrected an Alembic import-order defect. Run #57 confirmed Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend build, Docker development-origin configuration, hydration guard and single-flight email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction.
 
 Run #31 closed the two defects found by Run #30:
 
@@ -33,6 +34,7 @@ Run #31 closed the two defects found by Run #30:
 - Anti-enumerating registration, login and password-reset behavior
 - One-time expiring verification and password-reset tokens
 - Redis-backed idle sessions, logout and credential-change revocation
+- Redis-backed login/TOTP throttling with privacy-safe subject keys
 - Optional TOTP with encrypted-at-rest secret and explicit confirmation
 - Owner-scoped document, OCR, analysis, review, export and reveal operations
 - Default masking of sensitive financial values and signature regions
@@ -44,7 +46,9 @@ Run #31 closed the two defects found by Run #30:
 - Immutable source/page storage and SHA-256 duplicate detection
 - Explicit duplicate keep with canonical linkage and audit evidence
 - Immutable document replacement/version history with direct and logical-group lineage
-- Revocable, time-limited read-only sharing with hashed bearer tokens and masked structured fields (pending Runtime Acceptance #6 evidence)
+- Database-enforced logical version-number uniqueness with deterministic migration repair and stable conflict handling
+- Revocable, time-limited read-only sharing with hashed bearer tokens, masked structured fields and privacy-safe per-link throttling
+- Share creation gated on completed structured analysis
 - Independent bulk-item failure boundaries
 - Multi-page PDF splitting and page persistence
 - Orientation correction, quality/blur/resolution assessment and deskew routing
@@ -64,29 +68,19 @@ Run #31 closed the two defects found by Run #30:
 ### Data model and migrations
 
 - **16 persisted domain entities**, including `PreprocessingResult`, `Tag`, `Collection` and `ShareLink`
-- Sequential Alembic chain: `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011`; `0012` share-link persistence is pending Runtime Acceptance #6 evidence
+- Sequential Alembic chain: `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013`
+- Migration `0013` enforces logical document-version uniqueness across root and successor rows
 
 ## Acceptance evidence boundary
 
-Runtime Acceptance #5 proves the existing deterministic V1 behavior at commit `ecc3b71` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim. The 58-test functional result includes content-signature validation, occurrence-level privacy-safe search, owner-scoped reminders, tags, collections, immutable version history and current-version query semantics; the 69-test source-contract result includes upload signatures, reminder preferences, document versioning, current-version query semantics and the corpus-intake CLI contract.
+Runtime Acceptance #10 proves the deterministic V1 behavior at commit `cf0fa40` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
-The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
+The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. The five OCR documents are synthetic regression fixtures that validate the evaluation harness; their perfect CER/WER must not be presented as real-world model accuracy. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
-Full-text OCR search confirms raw database candidates against the same redacted
-text returned by the public OCR endpoint, so sensitive-only occurrences remain
-excluded while independent ordinary-text occurrences are searchable. For a
-text query, V1 performs this privacy confirmation in Python before pagination;
-this is appropriate for a personal library but must move to indexed redacted
-search material before large-scale deployment.
+Full-text OCR search confirms raw database candidates against the same redacted text returned by the public OCR endpoint, so sensitive-only occurrences remain excluded while independent ordinary-text occurrences are searchable. For a text query, V1 performs this privacy confirmation in Python before pagination; this is appropriate for a personal library but must move to indexed redacted search material before large-scale deployment.
 
 ## Next product decision
 
-The PP-StructureV3 adoption criteria and private-corpus manifest contract remain
-frozen, but the experiment is **parked, not cancelled**. Its target date is
-unset pending an owner-supplied corpus. The model adapter remains gated until
-the private pilot contains at least 30 permission-cleared, two-reviewer-labelled
-documents and passes `evaluation/validate_corpus_manifest.py --mode pilot --verify-files`.
+The PP-StructureV3 adoption criteria and private-corpus manifest contract remain frozen, but the experiment is **parked, not cancelled**. Its target date is unset pending an owner-supplied corpus. The model adapter remains gated until the private pilot contains at least 30 permission-cleared, two-reviewer-labelled documents and passes `evaluation/validate_corpus_manifest.py --mode pilot --verify-files`.
 
-While corpus collection proceeds, unblocked work focuses on product usability,
-production security and operational readiness. The Next.js and Playwright
-maintenance increments and Redis-backed login/TOTP throttling are complete.
+With sharing and version-race hardening now verified, the next unblocked work should focus on operational production readiness: backup/restore proof, monitoring and SLOs, load qualification, rate-limit tuning under representative traffic, and security validation. PP-StructureV3 remains out of scope until the private corpus gate is satisfied.
