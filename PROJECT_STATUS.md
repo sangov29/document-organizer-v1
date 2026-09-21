@@ -1,24 +1,24 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 21 September 2026  
-Verified commit: `cf0fa400e33ab66616f6b9034a041b456fbd32ff`  
-Evidence: GitHub Runtime Acceptance #10 under the renamed workflow  
-Evidence run ID: `20260921T121220Z-21af59b5`  
-Evidence SHA-256: `0b01e167eadee90e95740025fb6892ddf02a50ccb201c7ed0a19b241b0efd945`
+Verified commit: `e4755fed5ee1e793fc507006c392313d2a4470d6`  
+Evidence: GitHub Runtime Acceptance #12 under the renamed workflow  
+Evidence run ID: `20260921T131852Z-c47f6056`  
+Evidence SHA-256: `93a624a3e38a27873fd316a226cffb3211d73c57525a41f9ccc6fddfb2bb7b8f`
 
 ## Current result
 
-- Functional runtime acceptance: **61 passed, 0 failed, 0 errors, 0 skipped**
+- Functional runtime acceptance: **62 passed, 0 failed, 0 errors, 0 skipped**
 - Frozen catalogue coverage: **50 exact IDs** across UM, DI, PP, CR, CL, EX, PR, VA, SR, OR, IN and SEC
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
 - Labelled deterministic OCR regression evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
-- Backend source/model contracts: **79 passed**, with separate mandatory JUnit evidence
+- Backend source/model contracts: **81 passed**, with separate mandatory JUnit evidence
 - `source_contract_exit=0`, `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Runtime Acceptance #10 confirms that owner share creation waits for completed structured analysis and that public share links resolve only after their masked classification/field projection is available. It closes the readiness-contract failure found by Run #9 without weakening uniform public 404 behavior for invalid, expired, revoked or forged tokens.
+Runtime Acceptance #12 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also reconfirms that owner share creation waits for completed structured analysis and that public share links resolve only after their masked classification/field projection is available. It closes the readiness-contract failure found by Run #9 without weakening uniform public 404 behavior for invalid, expired, revoked or forged tokens.
 
 Run #9 established privacy-safe public share throttling and race-safe document version numbering, then exposed the share-readiness defect. Runs #6–#8 exercised and corrected composite share-token handling. Runtime Acceptance #5 confirmed document version history; #4 confirmed content-sniffing; #3 confirmed declared MIME/magic-byte upload verification and safe mixed-bulk rejection. Runtime Acceptance #1 under the renamed workflow (project sequence Run #65) confirmed occurrence-level sensitive OCR search filtering. Project Run #64 confirmed per-owner reminder preferences; Run #63 confirmed owner-scoped expiry/due-date reminders; Run #62 confirmed owner-scoped tags and collections plus the private corpus-intake CLI after Run #61 exposed and corrected an Alembic import-order defect. Run #57 confirmed Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend build, Docker development-origin configuration, hydration guard and single-flight email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction.
 
@@ -73,7 +73,7 @@ Run #31 closed the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Runtime Acceptance #10 proves the deterministic V1 behavior at commit `cf0fa40` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Runtime Acceptance #12 proves the deterministic V1 behavior at commit `e4755fe` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. The five OCR documents are synthetic regression fixtures that validate the evaluation harness; their perfect CER/WER must not be presented as real-world model accuracy. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
