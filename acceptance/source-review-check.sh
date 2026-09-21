@@ -5,6 +5,7 @@ cd "$ROOT"
 python3 -m py_compile acceptance/tests/conftest.py acceptance/tests/fixtures.py acceptance/tests/test_um_runtime.py acceptance/tests/test_di_runtime.py acceptance/tests/test_pp_runtime.py acceptance/tests/test_cr_runtime.py acceptance/tests/test_cl_ex_runtime.py acceptance/tests/test_cl_va_runtime.py acceptance/tests/test_pr_runtime.py acceptance/tests/test_sec_runtime.py acceptance/tests/test_in_runtime.py acceptance/tests/test_or_sr_runtime.py acceptance/tests/test_lifecycle_runtime.py acceptance/tests/test_operational_runtime.py acceptance/tools/timing_probe.py acceptance/tools/ocr_evaluation.py acceptance/tools/sanitize_logs.py acceptance/tools/wait_for_stack.py evaluation/bootstrap_corpus.py evaluation/intake_document.py evaluation/validate_corpus_manifest.py backend/app/main.py backend/app/api/auth.py backend/app/api/documents.py backend/app/api/shares.py backend/app/schemas/documents.py backend/app/workers/celery_app.py backend/alembic/versions/0008_classification_review.py backend/alembic/versions/0009_tags_collections.py backend/alembic/versions/0010_reminder_preferences.py backend/alembic/versions/0011_document_versions.py backend/alembic/versions/0012_share_links.py backend/alembic/versions/0013_version_group_uniqueness.py backend/tests/test_share_link_contracts.py backend/tests/test_operational_readiness_contracts.py backend/app/services/integrity_conflicts.py backend/app/services/rate_limiter.py backend/app/services/readiness.py backend/app/services/ocr.py backend/app/services/analysis.py backend/app/services/sensitivity.py backend/app/services/reminders.py backend/app/services/file_validation.py
 python3 - <<'PY'
 import json
+import re
 from pathlib import Path
 m = json.loads(Path('acceptance/coverage-map.json').read_text())
 frontend_package = json.loads(Path('frontend/package.json').read_text())
@@ -50,8 +51,10 @@ assert 'if (verificationStarted.current) return' in verify_page
 assert 'verificationStarted.current = true' in verify_page
 assert 'junit-source-contracts.xml' in harness
 assert 'SOURCE_CONTRACT_EXIT -ne 0' in harness
-assert 'Evidence: GitHub Runtime Acceptance #10 under the renamed workflow' in project_status
-assert '`cf0fa400e33ab66616f6b9034a041b456fbd32ff`' in project_status
+assert re.search(r'^Evidence: GitHub Runtime Acceptance #\d+ under the renamed workflow[ \t]*$', project_status, re.MULTILINE)
+assert re.search(r'^Verified commit: `[0-9a-f]{40}`[ \t]*$', project_status, re.MULTILINE)
+assert re.search(r'^Evidence run ID: `\d{8}T\d{6}Z-[0-9a-f]{8}`[ \t]*$', project_status, re.MULTILINE)
+assert re.search(r'^Evidence SHA-256: `[0-9a-f]{64}`[ \t]*$', project_status, re.MULTILINE)
 assert 'PROJECT_STATUS.md` names the latest green run' in release_checklist
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY
