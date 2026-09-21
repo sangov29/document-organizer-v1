@@ -31,6 +31,18 @@ def test_share_routes_are_owner_scoped_expiring_and_revocable():
     assert "link.expires_at <= now" in source
 
 
+def test_share_creation_requires_the_structured_analysis_projection():
+    source = (ROOT / "app" / "api" / "shares.py").read_text()
+    create_fn = source.split("def create_document_share(", 1)[1].split(
+        '@router.get("/documents/{document_id}/shares"', 1
+    )[0]
+    ready_pos = create_fn.find("ClassificationResult.id")
+    token_pos = create_fn.find("secrets.token_urlsafe")
+    assert ready_pos != -1 and token_pos != -1 and ready_pos < token_pos
+    assert '"code": "document_not_ready"' in create_fn
+    assert "status_code=409" in create_fn
+
+
 def test_public_share_is_structured_masked_and_value_free_in_audit():
     source = (ROOT / "app" / "api" / "shares.py").read_text()
     assert '@router.get("/shares/{token}"' in source

@@ -54,6 +54,22 @@ def create_document_share(
     user: User = Depends(get_current_user),
 ):
     document = _owned_document(db, user, document_id)
+    # A public share is a structured, masked projection of the active
+    # classification and fields.  Do not issue a bearer token until that
+    # projection can actually be produced: otherwise a successfully-created
+    # link initially resolves to the same 404 used for invalid tokens.
+    analysis_ready = db.scalar(select(ClassificationResult.id).where(
+        ClassificationResult.document_id == document.id,
+        ClassificationResult.is_active.is_(True),
+    ))
+    if analysis_ready is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "document_not_ready",
+                "message": "Document analysis must complete before sharing",
+            },
+        )
     link_id = uuid.uuid4()
     secret = secrets.token_urlsafe(32)
     token = f"{link_id}.{secret}"

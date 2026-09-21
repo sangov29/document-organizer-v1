@@ -14,6 +14,24 @@ from conftest import extract_token_from_mail, login, wait_for_ingestion, wait_fo
 from fixtures import document_png, png_bytes
 
 
+def _wait_for_analysis(api, auth_token, document_id, label, timeout=120.0):
+    deadline = time.time() + timeout
+    latest = None
+    while time.time() < deadline:
+        latest = api.request(
+            "GET", f"/documents/{document_id}/analysis",
+            label=label, token=auth_token,
+        )
+        if latest.status_code == 200:
+            return latest.json()
+        assert latest.status_code in {202, 404}, latest.text
+        time.sleep(0.5)
+    raise AssertionError(
+        f"Document {document_id} analysis did not become ready; "
+        f"last response={latest.status_code if latest else 'none'}"
+    )
+
+
 def test_document_deletion_and_owner_visible_audit(
     api, evidence, auth_token, email_factory, password_factory, run_id
 ):
@@ -208,6 +226,10 @@ def test_time_limited_share_is_masked_revocable_and_non_enumerating(api, evidenc
     evidence.document(document_id)
     wait_for_ingestion(document_id)
 
+    # A share is a structured projection, so creation begins only after the
+    # classification/field analysis contract is ready (not merely ingestion).
+    _wait_for_analysis(api, auth_token, document_id, "wait for share analysis")
+
     created = api.request(
         "POST", f"/documents/{document_id}/shares",
         label="create time-limited share", token=auth_token,
@@ -283,6 +305,10 @@ def test_share_view_is_rate_limited_per_token_with_window_recovery_and_isolation
         document_id = uploaded.json()["id"]
         evidence.document(document_id)
         wait_for_ingestion(document_id)
+        _wait_for_analysis(
+            api, auth_token, document_id,
+            f"wait for share-throttle analysis {marker}",
+        )
         created = api.request(
             "POST", f"/documents/{document_id}/shares",
             label=f"create share {marker}", token=auth_token,
