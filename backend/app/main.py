@@ -1,10 +1,15 @@
-from fastapi import FastAPI, Response, status
+import secrets
+
+from fastapi import FastAPI, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.api.shares import router as shares_router
 from app.services.storage import storage
 from app.services.readiness import dependency_readiness
+from app.services.http_metrics import http_metrics, record_http_metrics
+from app.core.config import settings
 
 app = FastAPI(title="Intelligent Personal Document Organizer", version="0.1.0")
 app.add_middleware(
@@ -17,6 +22,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(shares_router, prefix="/api/v1")
+app.middleware("http")(record_http_metrics)
 
 
 @app.on_event("startup")
@@ -46,3 +52,12 @@ def readiness(response: Response):
         "status": "ready" if ready else "not_ready",
         "dependencies": dependencies,
     }
+
+
+@app.get("/internal/metrics", include_in_schema=False)
+def metrics(x_metrics_token: str | None = Header(default=None)):
+    """Token-protected, low-cardinality telemetry for internal scraping."""
+    token = settings.metrics_token
+    if not token or not x_metrics_token or not secrets.compare_digest(x_metrics_token, token):
+        raise HTTPException(status_code=404, detail="Not Found")
+    return PlainTextResponse(http_metrics.render(), media_type="text/plain; version=0.0.4")

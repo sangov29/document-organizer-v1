@@ -4,7 +4,7 @@ A release is blocked unless every item below is complete.
 
 - The Runtime Acceptance workflow is green for the intended release commit.
 - `PROJECT_STATUS.md` names the latest green run and its exact commit SHA.
-- Functional, source-contract, timing, OCR-evaluation and UI exit codes are zero.
+- Functional, source-contract, timing, OCR-evaluation, UI and isolated backup/restore exit codes are zero.
 - The exact 50-ID frozen catalogue gate passes with no known gaps.
 - Database migrations are sequential and exercised from an empty database.
 - Dependency lockfiles and immutable container-image references are committed.
