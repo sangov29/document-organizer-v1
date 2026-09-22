@@ -150,6 +150,18 @@ PY
 UI_EXIT=${PIPESTATUS[0]}
 set -e
 
+# Snapshot and restore into disposable database/bucket targets after the
+# functional suite has produced real synthetic document rows and objects.
+# The probe writes only digests/counts; snapshot bytes remain temporary.
+BACKUP_RESTORE_EXIT=1
+if [[ $FUNCTIONAL_EXIT -eq 0 ]]; then
+  set +e
+  python3 acceptance/tools/backup_restore_probe.py \
+    "$EVIDENCE_DIR/backup-restore.json" 2>&1 | tee "$EVIDENCE_DIR/backup-restore-output.txt"
+  BACKUP_RESTORE_EXIT=${PIPESTATUS[0]}
+  set -e
+fi
+
 cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
 {
   "run_id": "$RUN_ID",
@@ -158,6 +170,8 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "timing_exit": $TIMING_EXIT,
   "ocr_evaluation_exit": $OCR_EVAL_EXIT,
   "ui_exit": $UI_EXIT,
+  "backup_restore_exit": $BACKUP_RESTORE_EXIT,
+  "backup_restore_json": "backup-restore.json",
   "functional_junit": "junit-functional.xml",
   "timing_json": "timing.json",
   "timing_junit": "junit-timing.xml",
@@ -175,10 +189,11 @@ printf 'Source/model contract exit: %s\n' "$SOURCE_CONTRACT_EXIT"
 printf 'Timing evidence exit: %s\n' "$TIMING_EXIT"
 printf 'OCR evaluation exit: %s\n' "$OCR_EVAL_EXIT"
 printf 'UI acceptance exit: %s\n' "$UI_EXIT"
+printf 'Backup/restore probe exit: %s\n' "$BACKUP_RESTORE_EXIT"
 printf 'Evidence directory: %s\n' "$EVIDENCE_REL"
 
 # Timing is intentionally separate, but the one-command harness is considered
 # unsuccessful if either evidence stream fails its own acceptance rule.
-if [[ $SOURCE_CONTRACT_EXIT -ne 0 || $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 ]]; then
+if [[ $SOURCE_CONTRACT_EXIT -ne 0 || $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 || $BACKUP_RESTORE_EXIT -ne 0 ]]; then
   exit 1
 fi
