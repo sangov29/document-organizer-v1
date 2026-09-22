@@ -39,22 +39,51 @@ def postgres(*args, input_bytes=None):
     return docker("postgres", *args, input_bytes=input_bytes)
 
 
+def database_fingerprint(name):
+    """Compare logical rows as multisets and include sequence state.
+
+    Text pg_dump output is unsuitable for this comparison: header content and
+    row traversal order are not part of the database's logical state.
+    """
+    def query(sql):
+        return postgres("psql", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1",
+                        "-U", DB_USER, "-d", name, "-c", sql).decode().strip()
+
+    tables = query("SELECT quote_ident(schemaname)||'.'||quote_ident(tablename) "
+                   "FROM pg_tables WHERE schemaname='public' ORDER BY schemaname,tablename").splitlines()
+    sequences = query("SELECT quote_ident(sequence_schema)||'.'||quote_ident(sequence_name) "
+                      "FROM information_schema.sequences WHERE sequence_schema='public' "
+                      "ORDER BY sequence_schema,sequence_name").splitlines()
+    result = {"tables": {}, "sequences": {}}
+    for table in tables:
+        # Repeated equal rows remain significant because they contribute to
+        # both count and ordered aggregate; physical row order does not.
+        result["tables"][table] = query(
+            "SELECT count(*)||':'||md5(COALESCE(string_agg(row_hash,',' ORDER BY row_hash),'')) "
+            f"FROM (SELECT md5(to_jsonb(t)::text) AS row_hash FROM {table} AS t) AS rows"
+        )
+    for sequence in sequences:
+        result["sequences"][sequence] = query(f"SELECT last_value||':'||is_called FROM {sequence}")
+    return result
+
+
 def database_roundtrip():
     name = "restore_probe_" + uuid.uuid4().hex[:16]
-    source = postgres("pg_dump", "-U", DB_USER, "-d", DB_NAME, "--data-only", "--column-inserts")
     with tempfile.TemporaryDirectory(prefix="acceptance-restore-") as private_dir:
         os.chmod(private_dir, 0o700)
         dump_path = Path(private_dir) / "database.dump"
         dump_path.write_bytes(postgres("pg_dump", "-Fc", "-U", DB_USER, "-d", DB_NAME))
+        source = database_fingerprint(DB_NAME)
         try:
             postgres("createdb", "-U", DB_USER, name)
             postgres("pg_restore", "--no-owner", "--no-privileges", "-U", DB_USER, "-d", name,
                      input_bytes=dump_path.read_bytes())
-            restored = postgres("pg_dump", "-U", DB_USER, "-d", name, "--data-only", "--column-inserts")
+            restored = database_fingerprint(name)
             if source != restored:
                 raise RuntimeError("restored PostgreSQL rows or sequences differ from source")
             return {"dump_sha256": hashlib.sha256(dump_path.read_bytes()).hexdigest(),
-                    "data_sha256": hashlib.sha256(restored).hexdigest()}
+                    "data_sha256": hashlib.sha256(json.dumps(restored, sort_keys=True).encode()).hexdigest(),
+                    "table_count": len(restored["tables"])}
         finally:
             postgres("dropdb", "-U", DB_USER, "--if-exists", "--force", name)
 

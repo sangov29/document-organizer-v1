@@ -20,18 +20,44 @@ def test_database_mismatch_fails_and_disposable_database_is_dropped(monkeypatch)
     def fake_postgres(*args, input_bytes=None):
         calls.append(args)
         if args[0] == "pg_dump":
-            if "-Fc" in args:
-                return b"binary snapshot"
-            return b"original rows" if "-d" in args and args[args.index("-d") + 1] == "docorganizer" else b"different rows"
+            return b"binary snapshot"
         return b""
 
     monkeypatch.setattr(probe, "postgres", fake_postgres)
+    monkeypatch.setattr(probe, "database_fingerprint", lambda name: {
+        "tables": {"public.documents": "2:aaa" if name == "docorganizer" else "1:bbb"},
+        "sequences": {},
+    })
     with pytest.raises(RuntimeError, match="restored PostgreSQL rows"):
         probe.database_roundtrip()
     created = next(c for c in calls if c[0] == "createdb")[-1]
     assert created.startswith("restore_probe_")
     assert next(c for c in calls if c[0] == "dropdb")[-1] == created
     assert all(c[-1] != "docorganizer" for c in calls if c[0] in {"createdb", "dropdb"})
+
+
+def test_fingerprint_uses_row_multiset_and_checks_sequence_state(monkeypatch):
+    commands = []
+
+    def fake_postgres(*args, input_bytes=None):
+        sql = args[-1]
+        commands.append(sql)
+        if "FROM pg_tables" in sql:
+            return b"public.documents\n"
+        if "FROM information_schema.sequences" in sql:
+            return b"public.document_counter\n"
+        if "FROM public.documents AS t" in sql:
+            return b"2:aaa\n"
+        if "FROM public.document_counter" in sql:
+            return b"3:true\n"
+        raise AssertionError("unexpected query")
+
+    monkeypatch.setattr(probe, "postgres", fake_postgres)
+    assert probe.database_fingerprint("docorganizer") == {
+        "tables": {"public.documents": "2:aaa"},
+        "sequences": {"public.document_counter": "3:true"},
+    }
+    assert any("ORDER BY row_hash" in sql for sql in commands)
 
 
 def test_restore_probe_is_mandatory_and_excludes_snapshot_bytes_from_evidence():
