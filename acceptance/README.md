@@ -1,9 +1,9 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #5
-under the renamed workflow is the verified baseline: 58 functional tests,
-69 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #21
+is the verified baseline: 63 functional tests,
+88 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
 all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules
@@ -52,10 +52,11 @@ Timing is deliberately separate from normal functional JUnit. `tools/timing_prob
 - login: real account + wrong password vs nonexistent account;
 - password reset request: real vs nonexistent account.
 
-The probe uses 50 samples and 6 warmups per group by default. Within every
+The probe uses 100 samples and 6 warmups per group by default. Within every
 pair it uses a recorded, seeded, balanced randomized branch-first order. This
-reduces systematic container drift while keeping the published median, p95 and
-KS acceptance thresholds unchanged. Sample and warmup counts must be even.
+reduces systematic container drift and the false-failure risk from a single
+discrete KS step while keeping the published median, p95 and KS acceptance
+thresholds unchanged. Sample and warmup counts must be even.
 
 Published outputs include raw samples, median, p95, relative deltas and a two-sample Kolmogorov-Smirnov statistic.
 

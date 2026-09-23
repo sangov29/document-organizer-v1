@@ -72,3 +72,14 @@ def test_harness_executes_backend_source_contracts_as_a_mandatory_evidence_strea
     assert "junit-source-contracts.xml" in harness
     assert 'SOURCE_CONTRACT_EXIT=${PIPESTATUS[0]}' in harness
     assert "SOURCE_CONTRACT_EXIT -ne 0" in harness
+
+
+def test_timing_probe_uses_larger_sample_without_relaxing_security_tolerances():
+    compose = (ROOT / "acceptance" / "docker-compose.acceptance.yml").read_text()
+    probe = (ROOT / "acceptance" / "tools" / "timing_probe.py").read_text()
+
+    assert 'TIMING_SAMPLES: ${TIMING_SAMPLES:-100}' in compose
+    assert 'SAMPLES = int(os.getenv("TIMING_SAMPLES", "100"))' in probe
+    assert 'MEDIAN_TOL = float(os.getenv("TIMING_MEDIAN_REL_TOL", "0.25"))' in probe
+    assert 'P95_TOL = float(os.getenv("TIMING_P95_REL_TOL", "0.35"))' in probe
+    assert 'KS_MAX = float(os.getenv("TIMING_KS_MAX", "0.35"))' in probe

@@ -6,7 +6,7 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 GitHub Runtime Acceptance #21 is the current evidence baseline at commit `5b2a8a7f2c47b24e4166a68e088ba5fcf36d3c1b`:
 
-- **62/62 functional tests passed**
+- **63/63 functional tests passed**
 - **50 exact catalogue IDs covered**
 - **3/3 timing probes passed**
 - **1/1 Playwright browser journey passed**

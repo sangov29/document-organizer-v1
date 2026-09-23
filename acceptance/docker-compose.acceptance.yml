@@ -24,13 +24,13 @@ services:
       ACCEPTANCE_RUN_ID: ${ACCEPTANCE_RUN_ID}
       METRICS_TOKEN: acceptance-metrics-probe-only
       ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER: /evidence
-      TIMING_SAMPLES: ${TIMING_SAMPLES:-50}
+      TIMING_SAMPLES: ${TIMING_SAMPLES:-100}
       TIMING_WARMUPS: ${TIMING_WARMUPS:-6}
       TIMING_ORDER_SEED: ${TIMING_ORDER_SEED:-acceptance-balanced-v1}
       TIMING_MEDIAN_REL_TOL: ${TIMING_MEDIAN_REL_TOL:-0.25}
       TIMING_P95_REL_TOL: ${TIMING_P95_REL_TOL:-0.35}
       TIMING_KS_MAX: ${TIMING_KS_MAX:-0.35}
-      # The timing probe intentionally performs 112 failed logins. Rate-limit
+      # The timing probe intentionally performs 212 failed logins. Rate-limit
       # behavior has separate contracts; this override preserves that probe.
       LOGIN_RATE_LIMIT: "1000"
       # Deliberately low so the share-throttling regression test can trigger

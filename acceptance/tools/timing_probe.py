@@ -15,7 +15,7 @@ import httpx
 API_URL = os.getenv("ACCEPTANCE_API_URL", "http://localhost:8000/api/v1")
 RUN_ID = os.getenv("ACCEPTANCE_RUN_ID", uuid.uuid4().hex[:12])
 EVIDENCE_DIR = Path(os.getenv("ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER", "/evidence"))
-SAMPLES = int(os.getenv("TIMING_SAMPLES", "50"))
+SAMPLES = int(os.getenv("TIMING_SAMPLES", "100"))
 WARMUPS = int(os.getenv("TIMING_WARMUPS", "6"))
 ORDER_SEED = os.getenv("TIMING_ORDER_SEED", "acceptance-balanced-v1")
 MEDIAN_TOL = float(os.getenv("TIMING_MEDIAN_REL_TOL", "0.25"))
