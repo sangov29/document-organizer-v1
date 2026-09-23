@@ -19,6 +19,12 @@ import uuid
 
 
 ROOT = Path(__file__).resolve().parents[2]
+# When this script is executed from the read-only /acceptance mount inside the
+# backend container, Python uses /acceptance/tools as its import root. Add the
+# application mount explicitly so the object probe can import app.services.
+CONTAINER_APP_ROOT = Path("/app")
+if CONTAINER_APP_ROOT.is_dir() and str(CONTAINER_APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(CONTAINER_APP_ROOT))
 COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "acceptance/docker-compose.acceptance.yml"]
 DB_USER = "docorganizer"
 DB_NAME = "docorganizer"
