@@ -153,7 +153,6 @@ def _persist_upload(
         collections=list(inherited_collections or []),
     )
     db.add(doc)
-    db.flush()
     correlation_id = uuid.uuid4().hex
     db.add(ProcessingJob(
         document_id=doc.id, stage="ingestion", status=ProcessingStatus.QUEUED,
@@ -181,6 +180,9 @@ def _persist_upload(
             },
         ))
     try:
+        # Flush inside the handler: concurrent version inserts can violate the
+        # group/number index before commit is reached.
+        db.flush()
         db.commit()
     except IntegrityError as exc:
         db.rollback()
