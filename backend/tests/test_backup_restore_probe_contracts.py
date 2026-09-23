@@ -79,3 +79,9 @@ def test_restore_probe_is_mandatory_and_excludes_snapshot_bytes_from_evidence():
     assert 'TemporaryDirectory(prefix="acceptance-restore-")' in source
     assert 'TemporaryFile()' in source
     assert 'dropdb' in source and 'delete_bucket' in source
+
+
+def test_container_object_probe_adds_the_backend_application_mount_to_sys_path():
+    source = (ROOT / "acceptance" / "tools" / "backup_restore_probe.py").read_text()
+    assert 'CONTAINER_APP_ROOT = Path("/app")' in source
+    assert 'sys.path.insert(0, str(CONTAINER_APP_ROOT))' in source
