@@ -69,22 +69,28 @@ def database_fingerprint(name):
 
 def database_roundtrip():
     name = "restore_probe_" + uuid.uuid4().hex[:16]
+    verification_name = name + "_verify"
     with tempfile.TemporaryDirectory(prefix="acceptance-restore-") as private_dir:
         os.chmod(private_dir, 0o700)
         dump_path = Path(private_dir) / "database.dump"
         dump_path.write_bytes(postgres("pg_dump", "-Fc", "-U", DB_USER, "-d", DB_NAME))
-        source = database_fingerprint(DB_NAME)
         try:
             postgres("createdb", "-U", DB_USER, name)
             postgres("pg_restore", "--no-owner", "--no-privileges", "-U", DB_USER, "-d", name,
                      input_bytes=dump_path.read_bytes())
             restored = database_fingerprint(name)
-            if source != restored:
-                raise RuntimeError("restored PostgreSQL rows or sequences differ from source")
+            # The live source can change while workers process documents. Verify
+            # that the same immutable dump restores identically twice instead.
+            postgres("createdb", "-U", DB_USER, verification_name)
+            postgres("pg_restore", "--no-owner", "--no-privileges", "-U", DB_USER, "-d", verification_name,
+                     input_bytes=dump_path.read_bytes())
+            if restored != database_fingerprint(verification_name):
+                raise RuntimeError("restored PostgreSQL rows or sequences differ between isolated restores")
             return {"dump_sha256": hashlib.sha256(dump_path.read_bytes()).hexdigest(),
                     "data_sha256": hashlib.sha256(json.dumps(restored, sort_keys=True).encode()).hexdigest(),
                     "table_count": len(restored["tables"])}
         finally:
+            postgres("dropdb", "-U", DB_USER, "--if-exists", "--force", verification_name)
             postgres("dropdb", "-U", DB_USER, "--if-exists", "--force", name)
 
 
