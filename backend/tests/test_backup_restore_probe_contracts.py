@@ -25,15 +25,25 @@ def test_database_mismatch_fails_and_disposable_database_is_dropped(monkeypatch)
 
     monkeypatch.setattr(probe, "postgres", fake_postgres)
     monkeypatch.setattr(probe, "database_fingerprint", lambda name: {
-        "tables": {"public.documents": "2:aaa" if name == "docorganizer" else "1:bbb"},
+        "tables": {"public.documents": "2:aaa" if name.endswith("_verify") else "1:bbb"},
         "sequences": {},
     })
-    with pytest.raises(RuntimeError, match="restored PostgreSQL rows"):
+    with pytest.raises(RuntimeError, match="between isolated restores"):
         probe.database_roundtrip()
-    created = next(c for c in calls if c[0] == "createdb")[-1]
-    assert created.startswith("restore_probe_")
-    assert next(c for c in calls if c[0] == "dropdb")[-1] == created
+    created = [c[-1] for c in calls if c[0] == "createdb"]
+    assert len(created) == 2 and created[0].startswith("restore_probe_")
+    assert created[1] == created[0] + "_verify"
+    assert {c[-1] for c in calls if c[0] == "dropdb"} == set(created)
     assert all(c[-1] != "docorganizer" for c in calls if c[0] in {"createdb", "dropdb"})
+
+
+def test_live_source_changes_do_not_invalidate_snapshot_restore(monkeypatch):
+    monkeypatch.setattr(probe, "postgres", lambda *args, input_bytes=None: b"dump" if args[0] == "pg_dump" else b"")
+    monkeypatch.setattr(probe, "database_fingerprint", lambda name: {
+        "tables": {"public.documents": "1:abc"}, "sequences": {}
+    } if name != "docorganizer" else (_ for _ in ()).throw(AssertionError("live source must not be compared")))
+    result = probe.database_roundtrip()
+    assert result["table_count"] == 1
 
 
 def test_fingerprint_uses_row_multiset_and_checks_sequence_state(monkeypatch):
