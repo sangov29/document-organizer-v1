@@ -4,13 +4,14 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance #3 under the renamed workflow is the current evidence baseline:
+GitHub Runtime Acceptance #21 is the current evidence baseline at commit `5b2a8a7f2c47b24e4166a68e088ba5fcf36d3c1b`:
 
-- **57/57 functional tests passed**
+- **62/62 functional tests passed**
 - **50 exact catalogue IDs covered**
 - **3/3 timing probes passed**
 - **1/1 Playwright browser journey passed**
-- functional, timing, OCR-evaluation and UI exit codes are all zero
+- **88/88 backend source/model contracts passed**
+- functional, timing, OCR-evaluation, UI and isolated backup/restore exit codes are all zero
 - no known catalogue gaps reported by the harness
 
 The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catalogue increment is documented in `docs/Test_Catalogue_v0.4_Reconstructed.md`.
@@ -39,7 +40,7 @@ The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catal
 
 ## Architecture
 
-The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 16 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0012`.
+The local stack contains FastAPI, Celery, PostgreSQL, Redis, MinIO, Next.js and Mailpit. The data model contains 16 persisted domain entities. The Alembic migration chain is sequential from `0001` through `0013`.
 
 PaddleOCR is the default OCR provider. The worker uses the CPU-oriented
 `PP-OCRv5_mobile_det` and English `en_PP-OCRv5_mobile_rec` models. Page

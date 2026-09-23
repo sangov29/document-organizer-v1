@@ -51,10 +51,10 @@ assert 'if (verificationStarted.current) return' in verify_page
 assert 'verificationStarted.current = true' in verify_page
 assert 'junit-source-contracts.xml' in harness
 assert 'SOURCE_CONTRACT_EXIT -ne 0' in harness
-assert re.search(r'^Evidence: GitHub Runtime Acceptance #\d+ under the renamed workflow[ \t]*$', project_status, re.MULTILINE)
+assert re.search(r'^Evidence: GitHub Runtime Acceptance #\d+[ \t]*$', project_status, re.MULTILINE)
 assert re.search(r'^Verified commit: `[0-9a-f]{40}`[ \t]*$', project_status, re.MULTILINE)
-assert re.search(r'^Evidence run ID: `\d{8}T\d{6}Z-[0-9a-f]{8}`[ \t]*$', project_status, re.MULTILINE)
-assert re.search(r'^Evidence SHA-256: `[0-9a-f]{64}`[ \t]*$', project_status, re.MULTILINE)
+assert re.search(r'^GitHub Actions run ID: `\d+`[ \t]*$', project_status, re.MULTILINE)
+assert re.search(r'^Evidence URL: https://github\.com/sangov29/document-organizer-v1/actions/runs/\d+[ \t]*$', project_status, re.MULTILINE)
 assert 'PROJECT_STATUS.md` names the latest green run' in release_checklist
 print('source-review checks passed: Python compile + exact 50-ID coverage map')
 PY
