@@ -25,3 +25,5 @@ def test_success_clears_failed_attempt_budget_and_acceptance_override_is_explici
     assert 'rate_limiter.clear("totp-confirm", subject)' in auth
     assert 'LOGIN_RATE_LIMIT: "1000"' in compose
     assert "timing probe intentionally performs 212 failed logins" in compose
+    assert 'TOTP_RATE_LIMIT: "3"' in compose
+    assert 'TOTP_RATE_WINDOW_SECONDS: "2"' in compose

@@ -25,6 +25,19 @@ app.include_router(shares_router, prefix="/api/v1")
 app.middleware("http")(record_http_metrics)
 
 
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Apply browser-safe baseline headers without recording request data."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+    )
+    return response
+
+
 @app.on_event("startup")
 def startup():
     storage.ensure_bucket()

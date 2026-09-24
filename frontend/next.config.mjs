@@ -6,6 +6,19 @@ const nextConfig = {
   // internal service hostname. Next.js 16 otherwise rejects its dev-only
   // asset/HMR origin, which prevents client hydration in that environment.
   allowedDevOrigins: ['frontend'],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {key: 'X-Content-Type-Options', value: 'nosniff'},
+          {key: 'X-Frame-Options', value: 'DENY'},
+          {key: 'Referrer-Policy', value: 'no-referrer'},
+          {key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()'},
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

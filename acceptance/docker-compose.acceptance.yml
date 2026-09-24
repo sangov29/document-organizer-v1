@@ -42,6 +42,10 @@ services:
       # The timing probe intentionally performs 212 failed logins. Rate-limit
       # behavior has separate contracts; this override preserves that probe.
       LOGIN_RATE_LIMIT: "1000"
+      # Short test-only TOTP window for executable threshold, isolation and
+      # recovery proof. Production defaults remain 5 attempts / 300 seconds.
+      TOTP_RATE_LIMIT: "3"
+      TOTP_RATE_WINDOW_SECONDS: "2"
       # Deliberately low so the share-throttling regression test can trigger
       # a genuine 429 and window recovery in seconds rather than minutes.
       # This is a test-environment override only -- see core/config.py for

@@ -56,3 +56,18 @@ reads. It is not a stress test, soak test, capacity ceiling or production sizing
 claim. Production qualification still needs representative document volumes,
 multiple API replicas, write/OCR mixes, longer duration and agreed traffic
 forecasts.
+
+## Rate-limit and browser security validation
+
+The acceptance stack pins TOTP confirmation to three attempts in a two-second
+window so the public API can prove threshold enforcement, `Retry-After`,
+per-account isolation and recovery without waiting for the production default
+five-minute window. Share-link throttling separately proves per-token isolation,
+malformed-token handling and recovery. Login timing uses an explicit high
+acceptance-only ceiling because its distribution probe deliberately performs
+hundreds of failed requests; production retains the configured default.
+
+Both API and frontend responses enforce `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and a restrictive
+camera/microphone/geolocation `Permissions-Policy`. Runtime tests verify the API
+headers and the Playwright journey verifies the browser document response.

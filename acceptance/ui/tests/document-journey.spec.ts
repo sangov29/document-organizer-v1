@@ -11,7 +11,11 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   const email = `ui-acceptance+${suffix}@example.com`;
   const password = `UI-Acceptance-${suffix}!9x`;
 
-  await page.goto('/register');
+  const registrationResponse = await page.goto('/register');
+  expect(registrationResponse?.headers()['x-content-type-options']).toBe('nosniff');
+  expect(registrationResponse?.headers()['x-frame-options']).toBe('DENY');
+  expect(registrationResponse?.headers()['referrer-policy']).toBe('no-referrer');
+  expect(registrationResponse?.headers()['permissions-policy']).toBe('camera=(), microphone=(), geolocation=()');
   await page.getByLabel('Email address').fill(email);
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', {name: 'Register'}).click();
