@@ -91,3 +91,17 @@ def test_acceptance_email_factory_bounds_the_rfc_local_part_and_keeps_uniqueness
     assert "EMAIL_LOCAL_PART_MAX = 64" in conftest
     assert "stem_limit = EMAIL_LOCAL_PART_MAX - len(suffix) - 1" in conftest
     assert 'local_part = f"{stem[:stem_limit]}-{suffix}"' in conftest
+
+
+def test_harness_gates_bounded_concurrent_write_and_ocr_completion():
+    harness = (ROOT / "acceptance" / "run-local.sh").read_text()
+    compose = (ROOT / "acceptance" / "docker-compose.acceptance.yml").read_text()
+    probe = (ROOT / "acceptance" / "tools" / "write_ocr_qualification.py").read_text()
+
+    assert "write_ocr_qualification.py" in harness
+    assert '"write_ocr_exit": $WRITE_OCR_EXIT' in harness
+    assert "WRITE_OCR_EXIT -ne 0" in harness
+    assert "WRITE_OCR_DOCUMENTS: ${WRITE_OCR_DOCUMENTS:-4}" in compose
+    assert "WRITE_OCR_CONCURRENCY: ${WRITE_OCR_CONCURRENCY:-2}" in compose
+    assert '"all_documents_completed"' in probe
+    assert '"all_documents_have_ocr_evidence"' in probe

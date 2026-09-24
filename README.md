@@ -4,13 +4,13 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance #25 is the current evidence baseline at commit `502b9836e5eb8c1260a12d75cc5fdb6449ab3f0c`:
+GitHub Runtime Acceptance #27 is the current evidence baseline at commit `a76f85d3279bd541c704762af7261cc9e127fdcc`:
 
-- **63/63 functional tests passed**
+- **64/64 functional tests passed**
 - **50 exact catalogue IDs covered**
 - **3/3 timing probes passed**
 - **1/1 Playwright browser journey passed**
-- **93/93 backend source/model contracts passed**
+- **96/96 backend source/model contracts passed**
 - functional, timing, OCR-evaluation, UI, load, SLO and isolated backup/restore exit codes are all zero
 - no known catalogue gaps reported by the harness
 

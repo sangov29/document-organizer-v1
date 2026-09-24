@@ -154,6 +154,10 @@ UI_EXIT=${PIPESTATUS[0]}
 LOAD_EXIT=${PIPESTATUS[0]}
 
 "${COMPOSE[@]}" exec -T backend \
+  python /acceptance/tools/write_ocr_qualification.py 2>&1 | tee "$EVIDENCE_DIR/write-ocr-qualification-output.txt"
+WRITE_OCR_EXIT=${PIPESTATUS[0]}
+
+"${COMPOSE[@]}" exec -T backend \
   python /acceptance/tools/slo_evaluation.py 2>&1 | tee "$EVIDENCE_DIR/slo-evaluation-output.txt"
 SLO_EXIT=${PIPESTATUS[0]}
 set -e
@@ -179,6 +183,7 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "ocr_evaluation_exit": $OCR_EVAL_EXIT,
   "ui_exit": $UI_EXIT,
   "load_exit": $LOAD_EXIT,
+  "write_ocr_exit": $WRITE_OCR_EXIT,
   "slo_exit": $SLO_EXIT,
   "backup_restore_exit": $BACKUP_RESTORE_EXIT,
   "backup_restore_json": "backup-restore.json",
@@ -190,6 +195,8 @@ cat > "$EVIDENCE_DIR/run-summary.json" <<JSON
   "ui_junit": "junit-ui.xml",
   "load_qualification_json": "load-qualification.json",
   "load_junit": "junit-load.xml",
+  "write_ocr_qualification_json": "write-ocr-qualification.json",
+  "write_ocr_junit": "junit-write-ocr.xml",
   "slo_evaluation_json": "slo-evaluation.json",
   "slo_junit": "junit-slo.xml",
   "source_contract_junit": "junit-source-contracts.xml",
@@ -204,12 +211,13 @@ printf 'Timing evidence exit: %s\n' "$TIMING_EXIT"
 printf 'OCR evaluation exit: %s\n' "$OCR_EVAL_EXIT"
 printf 'UI acceptance exit: %s\n' "$UI_EXIT"
 printf 'Load qualification exit: %s\n' "$LOAD_EXIT"
+printf 'Write/OCR qualification exit: %s\n' "$WRITE_OCR_EXIT"
 printf 'SLO evaluation exit: %s\n' "$SLO_EXIT"
 printf 'Backup/restore probe exit: %s\n' "$BACKUP_RESTORE_EXIT"
 printf 'Evidence directory: %s\n' "$EVIDENCE_REL"
 
 # Timing is intentionally separate, but the one-command harness is considered
 # unsuccessful if either evidence stream fails its own acceptance rule.
-if [[ $SOURCE_CONTRACT_EXIT -ne 0 || $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 || $LOAD_EXIT -ne 0 || $SLO_EXIT -ne 0 || $BACKUP_RESTORE_EXIT -ne 0 ]]; then
+if [[ $SOURCE_CONTRACT_EXIT -ne 0 || $FUNCTIONAL_EXIT -ne 0 || $TIMING_EXIT -ne 0 || $OCR_EVAL_EXIT -ne 0 || $UI_EXIT -ne 0 || $LOAD_EXIT -ne 0 || $WRITE_OCR_EXIT -ne 0 || $SLO_EXIT -ne 0 || $BACKUP_RESTORE_EXIT -ne 0 ]]; then
   exit 1
 fi

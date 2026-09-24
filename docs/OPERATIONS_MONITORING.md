@@ -54,8 +54,20 @@ Results are published in `load-qualification.json` and `junit-load.xml`. This is
 a small, controlled CI regression profile for authenticated database/Redis
 reads. It is not a stress test, soak test, capacity ceiling or production sizing
 claim. Production qualification still needs representative document volumes,
-multiple API replicas, write/OCR mixes, longer duration and agreed traffic
-forecasts.
+multiple API replicas, longer duration and agreed traffic forecasts.
+
+## Bounded write and OCR qualification
+
+The workflow also submits four unique synthetic document images at concurrency
+two and waits for every document's public OCR result. The gate requires every
+upload to return HTTP 202, every pipeline to complete with page and OCR-block
+evidence, upload p95 no greater than 3 seconds, and end-to-end completion p95
+no greater than 150 seconds. Per-document polling stops after 180 seconds.
+
+Results are published in `write-ocr-qualification.json` and
+`junit-write-ocr.xml`. This is a small CI regression profile for concurrent
+write, queue and CPU OCR behavior. It is not a stress test, sustained-throughput
+claim, capacity ceiling or production sizing result.
 
 ## Rate-limit and browser security validation
 
