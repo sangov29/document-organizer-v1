@@ -1,10 +1,11 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 24 September 2026  
-Verified commit: `a76f85d3279bd541c704762af7261cc9e127fdcc`  
-Evidence: GitHub Runtime Acceptance #27  
-GitHub Actions run ID: `35999817408`  
-Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/35999817408
+Verified commit: `de89b56f1106933c9a9841e91cb48b3a0d5e714a`  
+Evidence: GitHub Runtime Acceptance #31  
+GitHub Actions run ID: `36008822587`  
+Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/36008822587  
+Evidence artifact digest: `sha256:29bb2503ad7672b5b4e6efe399a6ce50c61d170658e09084570ba8ba7bb5929b`
 
 ## Current result
 
@@ -13,20 +14,23 @@ Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/359
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
 - Labelled deterministic OCR regression evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
-- Backend source/model contracts: **96 passed**, with separate mandatory JUnit evidence
+- Backend source/model/behavioral contracts: **100 passed**, with separate mandatory JUnit evidence
+- Bounded concurrent write/OCR qualification: **4/4 completed** at concurrency 2, submit p95 **0.045s**, completion p95 **16.220s**
 - Acceptance SLO gate: readiness healthy, minimum traffic met, API 5xx ratio within 1%, successful-request p95 within 2.5 seconds
 - Controlled authenticated read-load gate: **240 requests at concurrency 8**, with latency, throughput, error and unexpected-429 limits enforced
 - `source_contract_exit=0`, `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`, `load_exit=0`, `slo_exit=0`, `backup_restore_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Runtime Acceptance #27 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also proves isolated PostgreSQL dump/restore equivalence, MinIO object round-trip restore, the measurable acceptance SLO gate, controlled authenticated list/search load, TOTP threshold isolation/recovery and API/browser security headers. The larger timing sample preserves the existing anti-enumeration tolerances while reducing false failures at a discrete KS boundary.
+Runtime Acceptance #31 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also proves isolated PostgreSQL dump/restore equivalence, MinIO object round-trip restore, the measurable acceptance SLO gate, controlled authenticated list/search load, bounded concurrent write/OCR completion, TOTP threshold isolation/recovery and API/browser security headers. The larger timing sample preserves the existing anti-enumeration tolerances while reducing false failures at a discrete KS boundary.
+
+Run #31 additionally closes the release-critical resilience gaps with executable evidence: committed OCR artifacts are reused on task redelivery without double-processing, migration `0013` repairs a seeded duplicate version history before creating the unique index, and a simulated database version collision exercises the upload handler's stable `409 version_conflict`, rollback and orphan-object cleanup path.
 
 Runs #13–#16 introduced the isolated backup/restore gate and corrected immutable database comparison and a document-version upload race. Runs #17–#19 then exposed the object-probe container import defect; Runs #20 and #21 verify the corrected probe and its source contract.
 
 Run #9 established privacy-safe public share throttling and race-safe document version numbering, then exposed the share-readiness defect. Runs #6–#8 exercised and corrected composite share-token handling. Runtime Acceptance #5 confirmed document version history; #4 confirmed content-sniffing; #3 confirmed declared MIME/magic-byte upload verification and safe mixed-bulk rejection. Runtime Acceptance #1 under the renamed workflow (project sequence Run #65) confirmed occurrence-level sensitive OCR search filtering. Project Run #64 confirmed per-owner reminder preferences; Run #63 confirmed owner-scoped expiry/due-date reminders; Run #62 confirmed owner-scoped tags and collections plus the private corpus-intake CLI after Run #61 exposed and corrected an Alembic import-order defect. Run #57 confirmed Redis-backed login/TOTP attempt throttling. Run #56 confirmed the Next.js 16.3.5 upgrade, lockfile-reproducible frontend build, Docker development-origin configuration, hydration guard and single-flight email verification under React Strict Mode. Run #52 confirmed the immutable MinIO Community image correction.
 
-Run #31 closed the two defects found by Run #30:
+Earlier project-sequence Run #31 closed the two extraction/provenance defects found by project-sequence Run #30:
 
 - `EX-TC-004`: inferred `issuing_authority` retains the complete value and remains `trust_state=inferred`.
 - `PR-TC-002`: every returned sensitive textual-field `visual_region_id` resolves to exactly one serialized `sensitive_regions` entry.
@@ -77,7 +81,7 @@ Run #31 closed the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Runtime Acceptance #27 proves the deterministic V1 behavior at commit `a76f85d` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. It also proves isolated database and object-storage restoration, the synthetic acceptance SLO gate, bounded authenticated read load, explicit TOTP throttling behavior and security response headers within the acceptance environment. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Runtime Acceptance #31 proves the deterministic V1 behavior at commit `de89b56` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. It also proves isolated database and object-storage restoration, the synthetic acceptance SLO gate, bounded authenticated read load, bounded concurrent document writes through OCR completion, retry-safe OCR reuse, seeded migration repair, behavioral version-conflict handling, explicit TOTP throttling behavior and security response headers within the acceptance environment. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. The five OCR documents are synthetic regression fixtures that validate the evaluation harness; their perfect CER/WER must not be presented as real-world model accuracy. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
@@ -87,4 +91,4 @@ Full-text OCR search confirms raw database candidates against the same redacted 
 
 The PP-StructureV3 adoption criteria and private-corpus manifest contract remain frozen, but the experiment is **parked, not cancelled**. Its target date is unset pending an owner-supplied corpus. The model adapter remains gated until the private pilot contains at least 30 permission-cleared, two-reviewer-labelled documents and passes `evaluation/validate_corpus_manifest.py --mode pilot --verify-files`.
 
-With backup/restore, measurable SLOs, controlled read load, rate-limit behavior and security headers now verified, the next unblocked work is bounded write/OCR qualification followed by resilience testing. PP-StructureV3 remains out of scope until the private corpus gate is satisfied.
+With runtime qualification and the release-critical resilience tests verified, general platform feature development is frozen. The next engineering change is limited to strengthening the corpus manifest so a two-reviewer claim requires independent reviewer evidence and resolved adjudication. PP-StructureV3 remains out of scope until the private corpus gate is satisfied.
