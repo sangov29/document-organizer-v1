@@ -29,10 +29,15 @@ def test_ui_journey_uses_accessible_labels_not_visual_placeholder_copy():
     assert "toContainText('utility_bill')" not in journey
 
 
-def test_minio_uses_official_registry_and_immutable_release():
+def test_minio_builds_official_source_at_an_immutable_release():
     compose = (ROOT / "docker-compose.yml").read_text()
+    dockerfile = (ROOT / "infra" / "minio" / "Dockerfile").read_text()
 
-    assert "minio/minio:RELEASE.2025-04-22T22-12-26Z" in compose
+    assert "dockerfile: infra/minio/Dockerfile" in compose
+    assert "MINIO_VERSION: RELEASE.2025-04-22T22-12-26Z" in compose
+    assert "github.com/minio/minio@${MINIO_VERSION}" in dockerfile
+    assert "ARG MINIO_VERSION=RELEASE.2025-04-22T22-12-26Z" in dockerfile
+    assert "FROM golang:1.24-alpine AS builder" in dockerfile
     assert "minio/minio:latest" not in compose
 
 
