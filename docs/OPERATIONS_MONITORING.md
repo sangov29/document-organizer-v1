@@ -36,3 +36,23 @@ policy. Worker queue age, backup retention and production restore objectives
 also remain separate gates. The isolated acceptance restore probe validates
 content integrity but does not establish a production backup policy or recovery
 objective.
+
+## Controlled load qualification
+
+After the functional and browser journeys, the workflow creates a fresh
+verified synthetic account and sends 240 authenticated read requests at
+concurrency 8. The mix is 75% document listing and 25% paginated organization
+search. The gate requires:
+
+- no more than 1% non-2xx responses;
+- no more than 1% 5xx responses;
+- no unexpected HTTP 429 responses;
+- p95 request latency no greater than 1.0 second;
+- throughput of at least 10 requests per second.
+
+Results are published in `load-qualification.json` and `junit-load.xml`. This is
+a small, controlled CI regression profile for authenticated database/Redis
+reads. It is not a stress test, soak test, capacity ceiling or production sizing
+claim. Production qualification still needs representative document volumes,
+multiple API replicas, write/OCR mixes, longer duration and agreed traffic
+forecasts.

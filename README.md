@@ -4,14 +4,14 @@ A containerized document-ingestion and analysis application with owner-scoped au
 
 ## Verified baseline
 
-GitHub Runtime Acceptance #23 is the current evidence baseline at commit `c6a9a96dbd5b1b05462a53824195886d87b6083f`:
+GitHub Runtime Acceptance #24 is the current evidence baseline at commit `7855008033fc52501b2f97ec2f8e2f09f696ca23`:
 
 - **63/63 functional tests passed**
 - **50 exact catalogue IDs covered**
 - **3/3 timing probes passed**
 - **1/1 Playwright browser journey passed**
-- **89/89 backend source/model contracts passed**
-- functional, timing, OCR-evaluation, UI and isolated backup/restore exit codes are all zero
+- **91/91 backend source/model contracts passed**
+- functional, timing, OCR-evaluation, UI, SLO and isolated backup/restore exit codes are all zero
 - no known catalogue gaps reported by the harness
 
 The frozen mapping is in `acceptance/coverage-map.json`. The reconstructed catalogue increment is documented in `docs/Test_Catalogue_v0.4_Reconstructed.md`.
