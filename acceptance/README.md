@@ -1,9 +1,10 @@
 # V1 Runtime Acceptance Harness
 
 This harness executes 50 frozen catalogue IDs across UM, DI, PP, CR, CL, EX,
-PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #21
+PR, VA, SR, OR, IN and SEC against the running V1 stack. Runtime Acceptance #23
 is the verified baseline: 63 functional tests,
-88 source contracts, 3 timing probes, 5 OCR evaluation cases and 1 browser journey
+89 source contracts, 3 timing probes, 5 OCR evaluation cases, 1 browser journey
+and a measurable acceptance SLO gate
 all passed with zero exit codes and no known catalogue gaps.
 
 ## Boundary rules
@@ -96,6 +97,7 @@ The script:
 8. runs the separate timing probe and writes timing JSON + timing JUnit XML;
 9. runs the separate PaddleOCR labelled-corpus evaluation;
 10. runs the browser-level frontend journey and captures UI JUnit/screenshots;
-11. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
+11. evaluates readiness, API 5xx ratio and successful-request p95 latency;
+12. captures sanitized pytest output, Docker stats, test failure diagnostics and container logs.
 
 Evidence is written under `acceptance/evidence/<run-id>/`.

@@ -1,10 +1,10 @@
 # Build Status — Verified V1 Runtime Baseline
 
 Baseline date: 23 September 2026  
-Verified commit: `5b2a8a7f2c47b24e4166a68e088ba5fcf36d3c1b`  
-Evidence: GitHub Runtime Acceptance #21  
-GitHub Actions run ID: `35875010504`  
-Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/35875010504
+Verified commit: `c6a9a96dbd5b1b05462a53824195886d87b6083f`  
+Evidence: GitHub Runtime Acceptance #23  
+GitHub Actions run ID: `35891111123`  
+Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/35891111123
 
 ## Current result
 
@@ -13,12 +13,12 @@ Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/358
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
 - Labelled deterministic OCR regression evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
-- Backend source/model contracts: **88 passed**, with separate mandatory JUnit evidence
+- Backend source/model contracts: **89 passed**, with separate mandatory JUnit evidence
 - `source_contract_exit=0`, `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`, `backup_restore_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Runtime Acceptance #21 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also proves isolated PostgreSQL dump/restore equivalence and MinIO object round-trip restore from the acceptance runner. The object probe now imports the backend application through its container path, closing the execution-context defect exposed by Runs #17–#19.
+Runtime Acceptance #23 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also proves isolated PostgreSQL dump/restore equivalence and MinIO object round-trip restore from the acceptance runner. The larger timing sample preserves the existing anti-enumeration tolerances while reducing false failures at a discrete KS boundary.
 
 Runs #13–#16 introduced the isolated backup/restore gate and corrected immutable database comparison and a document-version upload race. Runs #17–#19 then exposed the object-probe container import defect; Runs #20 and #21 verify the corrected probe and its source contract.
 
@@ -75,7 +75,7 @@ Run #31 closed the two defects found by Run #30:
 
 ## Acceptance evidence boundary
 
-Runtime Acceptance #21 proves the deterministic V1 behavior at commit `5b2a8a7` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. It also proves isolated database and object-storage restoration within the acceptance environment. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Runtime Acceptance #23 proves the deterministic V1 behavior at commit `c6a9a96` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. It also proves isolated database and object-storage restoration within the acceptance environment. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. The five OCR documents are synthetic regression fixtures that validate the evaluation harness; their perfect CER/WER must not be presented as real-world model accuracy. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 

@@ -30,6 +30,9 @@ services:
       TIMING_MEDIAN_REL_TOL: ${TIMING_MEDIAN_REL_TOL:-0.25}
       TIMING_P95_REL_TOL: ${TIMING_P95_REL_TOL:-0.35}
       TIMING_KS_MAX: ${TIMING_KS_MAX:-0.35}
+      SLO_MIN_API_REQUESTS: ${SLO_MIN_API_REQUESTS:-100}
+      SLO_MAX_5XX_RATIO: ${SLO_MAX_5XX_RATIO:-0.01}
+      SLO_P95_LATENCY_SECONDS: ${SLO_P95_LATENCY_SECONDS:-2.5}
       # The timing probe intentionally performs 212 failed logins. Rate-limit
       # behavior has separate contracts; this override preserves that probe.
       LOGIN_RATE_LIMIT: "1000"
