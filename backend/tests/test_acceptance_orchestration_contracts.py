@@ -83,3 +83,11 @@ def test_timing_probe_uses_larger_sample_without_relaxing_security_tolerances():
     assert 'MEDIAN_TOL = float(os.getenv("TIMING_MEDIAN_REL_TOL", "0.25"))' in probe
     assert 'P95_TOL = float(os.getenv("TIMING_P95_REL_TOL", "0.35"))' in probe
     assert 'KS_MAX = float(os.getenv("TIMING_KS_MAX", "0.35"))' in probe
+
+
+def test_acceptance_email_factory_bounds_the_rfc_local_part_and_keeps_uniqueness():
+    conftest = (ROOT / "acceptance" / "tests" / "conftest.py").read_text()
+
+    assert "EMAIL_LOCAL_PART_MAX = 64" in conftest
+    assert "stem_limit = EMAIL_LOCAL_PART_MAX - len(suffix) - 1" in conftest
+    assert 'local_part = f"{stem[:stem_limit]}-{suffix}"' in conftest

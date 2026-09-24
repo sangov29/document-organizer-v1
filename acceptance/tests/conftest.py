@@ -20,6 +20,7 @@ API_URL = os.getenv("ACCEPTANCE_API_URL", "http://localhost:8000/api/v1")
 MAILPIT_URL = os.getenv("MAILPIT_API_URL", "http://mailpit:8025")
 RUN_ID = os.getenv("ACCEPTANCE_RUN_ID", uuid.uuid4().hex[:12])
 EVIDENCE_DIR = Path(os.getenv("ACCEPTANCE_EVIDENCE_DIR_IN_CONTAINER", "/evidence"))
+EMAIL_LOCAL_PART_MAX = 64
 
 SENSITIVE_KEYS = {
     "access_token", "token", "password", "new_password", "totp_code", "secret",
@@ -178,7 +179,13 @@ def run_id() -> str:
 
 
 def unique_email(label: str) -> str:
-    return f"acceptance+{RUN_ID}-{label}-{uuid.uuid4().hex[:8]}@example.com"
+    suffix = uuid.uuid4().hex[:8]
+    stem = f"acceptance+{RUN_ID}-{label}"
+    # Email validators enforce the RFC 5321 64-character local-part limit.
+    # Preserve the unique suffix while bounding arbitrary descriptive labels.
+    stem_limit = EMAIL_LOCAL_PART_MAX - len(suffix) - 1
+    local_part = f"{stem[:stem_limit]}-{suffix}"
+    return f"{local_part}@example.com"
 
 
 @pytest.fixture
