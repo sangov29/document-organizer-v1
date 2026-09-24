@@ -14,6 +14,26 @@ depends_on = None
 
 INDEX_NAME = "uq_document_version_group_number"
 
+RENUMBER_SQL = """
+WITH ranked AS (
+    SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY COALESCE(version_group_id, id)
+        ORDER BY version_number, uploaded_at, id
+    ) AS rn
+    FROM documents
+)
+UPDATE documents
+SET version_number = ranked.rn
+FROM ranked
+WHERE documents.id = ranked.id
+  AND documents.version_number IS DISTINCT FROM ranked.rn
+"""
+
+CREATE_INDEX_SQL = (
+    "CREATE UNIQUE INDEX uq_document_version_group_number "
+    "ON documents ((COALESCE(version_group_id, id)), version_number)"
+)
+
 
 def upgrade():
     indexes = {item["name"] for item in sa.inspect(op.get_bind()).get_indexes("documents")}
@@ -28,27 +48,8 @@ def upgrade():
     # pre-fix collision deterministically. Historical version numbers can be
     # changed only where a collision/gap makes repair necessary; stable IDs
     # and predecessor lineage remain authoritative.
-    op.execute(
-        """
-        WITH ranked AS (
-            SELECT id, ROW_NUMBER() OVER (
-                PARTITION BY COALESCE(version_group_id, id)
-                ORDER BY version_number, uploaded_at, id
-            ) AS rn
-            FROM documents
-        )
-        UPDATE documents
-        SET version_number = ranked.rn
-        FROM ranked
-        WHERE documents.id = ranked.id
-          AND documents.version_number IS DISTINCT FROM ranked.rn
-        """
-    )
-
-    op.execute(
-        "CREATE UNIQUE INDEX uq_document_version_group_number "
-        "ON documents ((COALESCE(version_group_id, id)), version_number)"
-    )
+    op.execute(RENUMBER_SQL)
+    op.execute(CREATE_INDEX_SQL)
 
 
 def downgrade():

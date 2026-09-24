@@ -1,5 +1,14 @@
+import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
+import uuid
 
+import pytest
+from fastapi import HTTPException
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
+
+from app.api import documents as documents_api
 from app.services.integrity_conflicts import upload_conflict_detail
 
 
@@ -66,6 +75,49 @@ def test_version_uniqueness_migration_renumbers_duplicates_before_indexing():
     assert "((COALESCE(version_group_id, id)), version_number)" in source
 
 
+def test_version_uniqueness_migration_repairs_seeded_duplicates_before_indexing():
+    """Execute the migration SQL against a database containing the old defect."""
+    migration_path = ROOT / "alembic" / "versions" / "0013_version_group_uniqueness.py"
+    spec = importlib.util.spec_from_file_location("version_group_uniqueness", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(migration)
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE documents (
+                id TEXT PRIMARY KEY,
+                version_group_id TEXT,
+                version_number INTEGER NOT NULL,
+                uploaded_at TEXT NOT NULL
+            )
+        """))
+        connection.execute(
+            text("""
+                INSERT INTO documents (id, version_group_id, version_number, uploaded_at)
+                VALUES
+                    ('root', NULL, 1, '2026-01-01T00:00:00Z'),
+                    ('child-a', 'root', 2, '2026-01-02T00:00:00Z'),
+                    ('child-b', 'root', 2, '2026-01-03T00:00:00Z')
+            """)
+        )
+        connection.execute(text(migration.RENUMBER_SQL))
+        connection.execute(text(migration.CREATE_INDEX_SQL))
+
+        repaired = connection.execute(text("""
+            SELECT id, version_number FROM documents
+            ORDER BY version_number
+        """)).all()
+        assert repaired == [("root", 1), ("child-a", 2), ("child-b", 3)]
+
+        with pytest.raises(IntegrityError):
+            connection.execute(text("""
+                INSERT INTO documents (id, version_group_id, version_number, uploaded_at)
+                VALUES ('child-c', 'root', 3, '2026-01-04T00:00:00Z')
+            """))
+
+
 def test_migration_includes_root_and_preserves_valid_version_order():
     """The migration grouping must rank root 1 with children 2 and 3."""
     source = (ROOT / "alembic" / "versions" / "0013_version_group_uniqueness.py").read_text()
@@ -74,11 +126,7 @@ def test_migration_includes_root_and_preserves_valid_version_order():
     assert "documents.version_number IS DISTINCT FROM ranked.rn" in source
 
 
-def test_concurrent_version_conflict_is_a_stable_409_not_an_unhandled_500():
-    source = (ROOT / "app" / "api" / "documents.py").read_text()
-    assert "except IntegrityError as exc:" in source
-    assert "detail=upload_conflict_detail(exc)" in source
-
+def test_concurrent_version_conflict_is_a_stable_409_not_an_unhandled_500(monkeypatch):
     class Diagnostic:
         constraint_name = "uq_document_version_group_number"
 
@@ -88,9 +136,46 @@ def test_concurrent_version_conflict_is_a_stable_409_not_an_unhandled_500():
     class FakeIntegrityError(Exception):
         orig = DriverError()
 
-    detail = upload_conflict_detail(FakeIntegrityError())
-    assert detail["code"] == "version_conflict"
-    assert "retry" in detail["message"].lower()
+    class ConflictSession:
+        rolled_back = False
+
+        def scalar(self, _query):
+            return None
+
+        def add(self, _value):
+            return None
+
+        def flush(self):
+            raise IntegrityError("insert", {}, DriverError())
+
+        def rollback(self):
+            self.rolled_back = True
+
+        def commit(self):
+            raise AssertionError("a conflicting upload must not commit")
+
+    deleted = []
+    monkeypatch.setattr(documents_api.storage, "put_immutable", lambda *_args: None)
+    monkeypatch.setattr(documents_api.storage, "delete", deleted.append)
+    session = ConflictSession()
+
+    with pytest.raises(HTTPException) as caught:
+        documents_api._persist_upload(
+            SimpleNamespace(filename="v2.png", content_type="image/png"),
+            b"version two",
+            "0" * 64,
+            session,
+            SimpleNamespace(id=uuid.uuid4()),
+            replaces_document_id=uuid.uuid4(),
+            version_group_id=uuid.uuid4(),
+            version_number=2,
+        )
+
+    assert caught.value.status_code == 409
+    assert caught.value.detail["code"] == "version_conflict"
+    assert "retry" in caught.value.detail["message"].lower()
+    assert session.rolled_back is True
+    assert len(deleted) == 1
 
     fallback = upload_conflict_detail(Exception())
     assert fallback == {"code": "duplicate_document"}
