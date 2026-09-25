@@ -53,8 +53,8 @@ def build_manifest(manifest_path: Path, private_dir: Path, update: bool = False)
     label_review = "draft"
     if manifest_path.exists():
         loaded = json.loads(manifest_path.read_text())
-        if loaded.get("schema_version") != "corpus-manifest-v0.1":
-            raise ValueError("existing manifest schema_version must be corpus-manifest-v0.1")
+        if loaded.get("schema_version") != "corpus-manifest-v0.2":
+            raise ValueError("existing manifest schema_version must be corpus-manifest-v0.2")
         for document in loaded.get("documents", []):
             digest = document.get("sha256")
             if isinstance(digest, str):
@@ -80,7 +80,16 @@ def build_manifest(manifest_path: Path, private_dir: Path, update: bool = False)
                 "consent_reference": "TODO",
                 "permission_basis": "TODO",
                 "source_provenance": "TODO",
-                "second_reviewer": "TODO",
+                "reviewer_a": "TODO",
+                "reviewer_b": "TODO",
+                "reviewer_a_label": None,
+                "reviewer_b_label": None,
+                "reviewer_agreement": None,
+                "disagreement_axes": [],
+                "adjudicator": None,
+                "adjudication_mode": None,
+                "adjudicated_label": None,
+                "adjudication_rationale": None,
                 "expected_family": "TODO",
                 "fields": [],
             }
@@ -92,7 +101,7 @@ def build_manifest(manifest_path: Path, private_dir: Path, update: bool = False)
                 documents.append(document)
 
     return {
-        "schema_version": "corpus-manifest-v0.1",
+        "schema_version": "corpus-manifest-v0.2",
         "label_review": label_review,
         "documents": sorted(documents, key=lambda item: item["id"]),
     }
@@ -124,7 +133,7 @@ def main() -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     print(f"Corpus manifest written: {manifest_path} ({len(manifest['documents'])} documents)")
-    print("Complete consent, family, field and region labels, obtain second review, then validate it.")
+    print("Complete consent and independent labels for both reviewers, resolve disagreements, then validate it.")
     return 0
 
 

@@ -22,7 +22,7 @@ def test_bootstrap_creates_hashed_draft_records(tmp_path):
 
     manifest = bootstrap.build_manifest(evaluation / "corpus-manifest.json", private)
 
-    assert manifest["schema_version"] == "corpus-manifest-v0.1"
+    assert manifest["schema_version"] == "corpus-manifest-v0.2"
     assert manifest["label_review"] == "draft"
     assert len(manifest["documents"]) == 1
     document = manifest["documents"][0]
@@ -31,7 +31,13 @@ def test_bootstrap_creates_hashed_draft_records(tmp_path):
     assert document["consent_reference"] == "TODO"
     assert document["permission_basis"] == "TODO"
     assert document["source_provenance"] == "TODO"
-    assert document["second_reviewer"] == "TODO"
+    assert document["reviewer_a"] == "TODO"
+    assert document["reviewer_b"] == "TODO"
+    assert document["reviewer_a_label"] is None
+    assert document["reviewer_b_label"] is None
+    assert document["reviewer_agreement"] is None
+    assert document["disagreement_axes"] == []
+    assert document["adjudication_mode"] is None
     assert document["expected_family"] == "TODO"
     assert document["fields"] == []
 

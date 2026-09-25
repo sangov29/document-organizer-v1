@@ -14,7 +14,7 @@ from bootstrap_corpus import SUPPORTED_SUFFIXES, build_manifest, sha256_file, wr
 PERMISSION_BASES = ("owner_document", "written_consent", "realistic_synthetic", "public_domain")
 
 
-def intake(source: Path, manifest_path: Path, permission_basis: str, provenance: str, second_reviewer: str) -> dict:
+def intake(source: Path, manifest_path: Path, permission_basis: str, provenance: str, reviewer_a: str, reviewer_b: str) -> dict:
     source = source.resolve()
     manifest_path = manifest_path.resolve()
     if not source.is_file() or source.is_symlink():
@@ -23,8 +23,10 @@ def intake(source: Path, manifest_path: Path, permission_basis: str, provenance:
         raise ValueError("source must be PDF, JPG, JPEG or PNG")
     if permission_basis not in PERMISSION_BASES:
         raise ValueError("unsupported permission basis")
-    if not provenance.strip() or not second_reviewer.strip():
-        raise ValueError("source provenance and second reviewer are required")
+    if not provenance.strip() or not reviewer_a.strip() or not reviewer_b.strip():
+        raise ValueError("source provenance and both reviewers are required")
+    if reviewer_a.strip().casefold() == reviewer_b.strip().casefold():
+        raise ValueError("reviewer identities must be distinct")
 
     private_dir = manifest_path.parent / "private"
     private_dir.mkdir(parents=True, exist_ok=True)
@@ -41,7 +43,8 @@ def intake(source: Path, manifest_path: Path, permission_basis: str, provenance:
         "permission_basis": permission_basis,
         "consent_reference": permission_basis,
         "source_provenance": provenance.strip(),
-        "second_reviewer": second_reviewer.strip(),
+        "reviewer_a": reviewer_a.strip(),
+        "reviewer_b": reviewer_b.strip(),
     })
     write_manifest(manifest_path, manifest)
     return record
@@ -53,10 +56,11 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, default=Path("evaluation/corpus-manifest.json"))
     parser.add_argument("--permission-basis", choices=PERMISSION_BASES, required=True)
     parser.add_argument("--provenance", required=True, help="Non-sensitive description of where the source came from")
-    parser.add_argument("--second-reviewer", required=True)
+    parser.add_argument("--reviewer-a", required=True)
+    parser.add_argument("--reviewer-b", required=True)
     args = parser.parse_args()
     try:
-        record = intake(args.source, args.manifest, args.permission_basis, args.provenance, args.second_reviewer)
+        record = intake(args.source, args.manifest, args.permission_basis, args.provenance, args.reviewer_a, args.reviewer_b)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

@@ -13,7 +13,8 @@ def test_intake_accepts_one_document_and_rejects_duplicate(tmp_path):
     command = [
         sys.executable, str(ROOT / "evaluation" / "intake_document.py"), str(source),
         "--manifest", str(manifest), "--permission-basis", "owner_document",
-        "--provenance", "Owner supplied phone photograph", "--second-reviewer", "reviewer-b",
+        "--provenance", "Owner supplied phone photograph",
+        "--reviewer-a", "reviewer-a", "--reviewer-b", "reviewer-b",
     ]
     first = subprocess.run(command, capture_output=True, text=True)
     assert first.returncode == 0, first.stderr
@@ -31,4 +32,6 @@ def test_intake_requires_permission_provenance_and_reviewer_contract():
     assert '"owner_document"' in source and '"written_consent"' in source
     assert '"realistic_synthetic"' in source and '"public_domain"' in source
     assert 'parser.add_argument("--provenance", required=True' in source
-    assert 'parser.add_argument("--second-reviewer", required=True' in source
+    assert 'parser.add_argument("--reviewer-a", required=True' in source
+    assert 'parser.add_argument("--reviewer-b", required=True' in source
+    assert 'reviewer identities must be distinct' in source

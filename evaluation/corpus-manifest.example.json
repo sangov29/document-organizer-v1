@@ -1,5 +1,5 @@
 {
-  "schema_version": "corpus-manifest-v0.1",
+  "schema_version": "corpus-manifest-v0.2",
   "corpus_id": "replace-with-private-corpus-id",
   "label_review": "two-reviewer-resolved",
   "documents": [
@@ -10,18 +10,27 @@
       "consent_reference": "internal-approval-reference-without-personal-data",
       "permission_basis": "written_consent",
       "source_provenance": "Non-sensitive internal source description",
-      "second_reviewer": "reviewer-handle",
+      "reviewer_a": "reviewer-a-handle",
+      "reviewer_b": "reviewer-b-handle",
+      "reviewer_a_label": {
+        "expected_family": "unknown",
+        "out_of_family_kind": "certificate",
+        "fields": [{"field_name": "recipient_name", "value": "REDACTED EXAMPLE", "page_number": 1, "bbox": {"x": 100, "y": 200, "width": 300, "height": 40}, "sensitive": true}]
+      },
+      "reviewer_b_label": {
+        "expected_family": "unknown",
+        "out_of_family_kind": "certificate",
+        "fields": [{"field_name": "recipient_name", "value": "REDACTED EXAMPLE", "page_number": 1, "bbox": {"x": 100, "y": 200, "width": 300, "height": 40}, "sensitive": true}]
+      },
+      "reviewer_agreement": true,
+      "disagreement_axes": [],
+      "adjudicator": null,
+      "adjudication_mode": null,
+      "adjudicated_label": null,
+      "adjudication_rationale": null,
       "expected_family": "unknown",
       "out_of_family_kind": "certificate",
-      "fields": [
-        {
-          "field_name": "recipient_name",
-          "value": "REDACTED EXAMPLE",
-          "page_number": 1,
-          "bbox": {"x": 100, "y": 200, "width": 300, "height": 40},
-          "sensitive": true
-        }
-      ]
+      "fields": [{"field_name": "recipient_name", "value": "REDACTED EXAMPLE", "page_number": 1, "bbox": {"x": 100, "y": 200, "width": 300, "height": 40}, "sensitive": true}]
     }
   ]
 }
