@@ -1,11 +1,11 @@
 # Build Status — Verified V1 Runtime Baseline
 
-Baseline date: 24 September 2026  
-Verified commit: `de89b56f1106933c9a9841e91cb48b3a0d5e714a`  
-Evidence: GitHub Runtime Acceptance #31  
-GitHub Actions run ID: `36008822587`  
-Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/36008822587  
-Evidence artifact digest: `sha256:29bb2503ad7672b5b4e6efe399a6ce50c61d170658e09084570ba8ba7bb5929b`
+Baseline date: 25 September 2026  
+Verified commit: `1bb1493f51381f17e889f3f4823c091f8f393aab`  
+Evidence: GitHub Runtime Acceptance #33  
+GitHub Actions run ID: `36086256438`  
+Evidence URL: https://github.com/sangov29/document-organizer-v1/actions/runs/36086256438  
+Evidence artifact digest: `sha256:5da4abbcd8e439b4e25e5df329989108f31727d521efd441c837b106ec3ccbcb`
 
 ## Current result
 
@@ -14,15 +14,17 @@ Evidence artifact digest: `sha256:29bb2503ad7672b5b4e6efe399a6ce50c61d170658e090
 - Anti-enumeration timing: **3 passed**
 - Browser journey: **1 passed**
 - Labelled deterministic OCR regression evaluation: **5 passed**, aggregate CER/WER **0.0000/0.0000**
-- Backend source/model/behavioral contracts: **100 passed**, with separate mandatory JUnit evidence
-- Bounded concurrent write/OCR qualification: **4/4 completed** at concurrency 2, submit p95 **0.045s**, completion p95 **16.220s**
+- Backend source/model/behavioral contracts: **104 passed**, with separate mandatory JUnit evidence
+- Bounded concurrent write/OCR qualification: **4/4 completed** at concurrency 2, submit p95 **0.052s**, completion p95 **19.783s**
 - Acceptance SLO gate: readiness healthy, minimum traffic met, API 5xx ratio within 1%, successful-request p95 within 2.5 seconds
 - Controlled authenticated read-load gate: **240 requests at concurrency 8**, with latency, throughput, error and unexpected-429 limits enforced
 - `source_contract_exit=0`, `functional_exit=0`, `timing_exit=0`, `ocr_evaluation_exit=0`, `ui_exit=0`, `load_exit=0`, `slo_exit=0`, `backup_restore_exit=0`
 - Known catalogue gaps reported by the harness: **none**
 - Frontend acceptance runtime: Playwright **1.63.0**, with the previously reported dependency advisories removed
 
-Runtime Acceptance #31 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also proves isolated PostgreSQL dump/restore equivalence, MinIO object round-trip restore, the measurable acceptance SLO gate, controlled authenticated list/search load, bounded concurrent write/OCR completion, TOTP threshold isolation/recovery and API/browser security headers. The larger timing sample preserves the existing anti-enumeration tolerances while reducing false failures at a discrete KS boundary.
+Runtime Acceptance #33 confirms dependency-aware process liveness and traffic readiness for PostgreSQL, Redis and object storage. It also proves isolated PostgreSQL dump/restore equivalence, MinIO object round-trip restore, the measurable acceptance SLO gate, controlled authenticated list/search load, bounded concurrent write/OCR completion, TOTP threshold isolation/recovery and API/browser security headers. The larger timing sample preserves the existing anti-enumeration tolerances while reducing false failures at a discrete KS boundary.
+
+Run #33 verifies corpus manifest schema v0.2 and closes the declared-review loophole: a `two-reviewer-resolved` claim is rejected unless two distinct, non-placeholder reviewers provide independent complete labels, validator-derived agreement/disagreement axes are consistent, and disagreements have resolved joint or independent third-party adjudication evidence.
 
 Run #31 additionally closes the release-critical resilience gaps with executable evidence: committed OCR artifacts are reused on task redelivery without double-processing, migration `0013` repairs a seeded duplicate version history before creating the unique index, and a simulated database version collision exercises the upload handler's stable `409 version_conflict`, rollback and orphan-object cleanup path.
 
@@ -81,7 +83,7 @@ Earlier project-sequence Run #31 closed the two extraction/provenance defects fo
 
 ## Acceptance evidence boundary
 
-Runtime Acceptance #31 proves the deterministic V1 behavior at commit `de89b56` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. It also proves isolated database and object-storage restoration, the synthetic acceptance SLO gate, bounded authenticated read load, bounded concurrent document writes through OCR completion, retry-safe OCR reuse, seeded migration repair, behavioral version-conflict handling, explicit TOTP throttling behavior and security response headers within the acceptance environment. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
+Runtime Acceptance #33 proves the deterministic V1 behavior at commit `1bb1493` against the Docker acceptance stack: PostgreSQL, Redis, MinIO, Mailpit, API, Celery worker, frontend and Playwright. It also proves isolated database and object-storage restoration, the synthetic acceptance SLO gate, bounded authenticated read load, bounded concurrent document writes through OCR completion, retry-safe OCR reuse, seeded migration repair, behavioral version-conflict handling, corpus reviewer-evidence enforcement, explicit TOTP throttling behavior and security response headers within the acceptance environment. The workflow counter restarted because `.github/workflows/blank.yml` was renamed to `runtime-acceptance.yml`. Mail evidence is limited to application queueing, token lifecycle, SMTP handoff and local Mailpit receipt; it is not an external-provider delivery claim.
 
 The green deterministic suite is not a corpus-wide OCR/classification/extraction accuracy benchmark. The five OCR documents are synthetic regression fixtures that validate the evaluation harness; their perfect CER/WER must not be presented as real-world model accuracy. Model precision, recall, F1, false-known/false-unknown rates, throughput, load, resilience, retention periods and production infrastructure qualification remain separate gates.
 
