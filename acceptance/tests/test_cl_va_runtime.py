@@ -55,13 +55,14 @@ def test_CL_TC_004_same_family_documents_do_not_merge(api, auth_token, run_id):
 
 
 @pytest.mark.catalogue("CL-TC-005", steps="1-4")
-def test_CL_TC_005_confident_unknown_is_valid_outcome(api, auth_token, run_id):
+def test_CL_TC_005_zero_marker_unknown_abstains_for_review(api, auth_token, run_id):
     result = _upload_and_wait(api, auth_token, run_id, "cl005-unknown", [
         "COMMUNITY MEETING NOTICE", "Name: Example Person", "Reference: OOD-FIVE",
     ])
     assert result["classification"]["family"] == "unknown"
-    assert result["classification"]["confidence"] == 1.0
-    assert result["classification"]["review_required"] is False
+    assert result["classification"]["confidence"] == result["classification"]["configured_threshold"] == 0.5
+    assert result["classification"]["abstention_reason"] == "no_known_family_evidence"
+    assert result["classification"]["review_required"] is True
 
 
 @pytest.mark.catalogue("VA-TC-001", steps="1-4")
