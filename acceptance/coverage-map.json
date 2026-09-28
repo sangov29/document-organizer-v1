@@ -267,13 +267,13 @@
     },
     "CL-TC-005": {
       "pytest": [
-        "test_CL_TC_005_confident_unknown_is_valid_outcome"
+        "test_CL_TC_005_zero_marker_unknown_abstains_for_review"
       ],
       "steps": {
         "1": "zero-marker OOD fixture uploaded",
         "2": "Unknown assigned",
-        "3": "confidence indicates no known-family evidence",
-        "4": "valid Unknown is not forced into review"
+        "3": "confidence is capped at the configured review threshold and no-known-family evidence is explicit",
+        "4": "Unknown is routed to review instead of being presented as confidently resolved"
       }
     },
     "EX-TC-008": {
