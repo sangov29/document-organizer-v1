@@ -37,6 +37,7 @@ def test_CL_TC_003_ambiguous_classification_routes_to_review(api, auth_token, ru
     result = _ambiguous(api, auth_token, run_id, "cl003-ambiguous")
     assert result["classification"]["family"] == "unknown"
     assert result["classification"]["confidence"] < 1.0
+    assert result["classification"]["abstention_reason"]
     assert result["classification"]["review_required"] is True
     document = api.request("GET", f"/documents/{result['document_id']}", label="CL-TC-003 document routing", token=auth_token)
     assert document.status_code == 200 and document.json()["status"] == "needs_review"

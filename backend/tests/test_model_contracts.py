@@ -1,9 +1,11 @@
 from app.models.enums import AuditEventType, DocumentFamily, TrustState
 
 
-def test_v1_classification_outcomes_are_seven_known_plus_unknown():
+def test_classification_outcomes_include_supported_corpus_families():
     assert {x.value for x in DocumentFamily} == {
-        "identity", "utility", "banking", "educational", "employment", "invoice_receipt", "travel", "unknown"
+        "identity", "utility", "banking", "educational", "employment",
+        "invoice_receipt", "travel", "hotel", "legal_notice", "shipping",
+        "unknown",
     }
 
 

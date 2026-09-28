@@ -170,6 +170,7 @@ class ResultProvenanceResponse(BaseModel):
 class ClassificationResponse(BaseModel):
     family: str
     confidence: float
+    abstention_reason: str | None = None
     provider: str
     model_version: str
     method: str

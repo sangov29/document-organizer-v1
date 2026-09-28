@@ -950,6 +950,7 @@ def get_document_analysis(
         classification=ClassificationResponse(
             family=classification.family.value,
             confidence=classification.confidence,
+            abstention_reason=classification.abstention_reason,
             provider=classification.provider,
             model_version=classification.model_version,
             method=classification.method,

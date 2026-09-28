@@ -219,7 +219,7 @@
         "test_CL_TC_001_all_families_and_unknown"
       ],
       "steps": {
-        "1": "deterministic fixtures cover seven known families and OOD Unknown",
+        "1": "deterministic fixtures cover ten known families and OOD Unknown",
         "2": "each source is uploaded through the public API",
         "3": "classification runs after persisted OCR",
         "4": "exactly one active outcome is returned per document",
@@ -289,7 +289,7 @@
         "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"
       },
       "evidence": "analysis/EX-TC-008-results.json and recorded public API responses",
-      "schema_decision": "schema-v0.1; Invoice/Receipt defines invoice number, invoice date and total amount as individually critical, with bounded standard vendor/customer/subtotal/tax/currency/payment-due fields",
+      "schema_decision": "schema-v0.2; bounded schemas cover identity, utility, banking, invoice/receipt, travel, hotel, legal notice and shipping fields; annual reports remain out of scope",
       "claim_limit": "Deterministic rule fixtures only; correction/confirmation UI and corpus extraction accuracy remain later gates"
     },
     "EX-TC-009": {
@@ -517,7 +517,7 @@
       ],
       "steps": {
         "1": "Identity, Utility, Banking and Invoice/Receipt fixtures uploaded through the public API",
-        "2": "active versioned schema (schema-v0.1) selected per family",
+        "2": "active versioned schema (schema-v0.2) selected per family",
         "3": "every defined field for each family is attempted, found or explicit not_found"
       },
       "evidence": "analysis/EX-TC-001-results.json and recorded public API responses",

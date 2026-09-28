@@ -212,7 +212,8 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
     decision = classify_text(combined_text)
     classification = ClassificationResult(
         document_id=document.id, family=decision.family,
-        confidence=decision.confidence, provider=decision.provider,
+        confidence=decision.confidence, abstention_reason=decision.abstention_reason,
+        provider=decision.provider,
         model_version=decision.model_version, method=decision.method,
         is_active=True,
     )

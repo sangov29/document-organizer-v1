@@ -182,6 +182,7 @@ class ClassificationResult(Base):
     document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), index=True)
     family: Mapped[DocumentFamily] = mapped_column(Enum(DocumentFamily, name="document_family"), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    abstention_reason: Mapped[str | None] = mapped_column(String(128))
     provider: Mapped[str] = mapped_column(String(128), nullable=False)
     model_version: Mapped[str] = mapped_column(String(128), nullable=False)
     method: Mapped[str] = mapped_column(String(128), nullable=False)

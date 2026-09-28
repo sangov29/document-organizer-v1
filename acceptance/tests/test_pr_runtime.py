@@ -120,7 +120,7 @@ def test_PR_TC_003_full_field_provenance(api, evidence, auth_token, run_id):
     assert provenance["source_document_id"] == document_id
     assert provenance["source_page_id"]
     assert provenance["provider"] == "builtin-rules"
-    assert provenance["model_version"] == "schema-v0.1"
+    assert provenance["model_version"] == "schema-v0.2"
     assert provenance["method"] == "predefined_field_rules"
     assert provenance["confidence"] is not None and 0 <= provenance["confidence"] <= 1
     assert provenance["processed_at"]

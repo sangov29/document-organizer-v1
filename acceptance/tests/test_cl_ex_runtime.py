@@ -58,6 +58,9 @@ def test_CL_TC_001_all_families_and_unknown(api, evidence, auth_token, run_id):
         "employment": ["EMPLOYMENT PAYSLIP", "SALARY", "EMPLOYER"],
         "invoice_receipt": ["TAX INVOICE", "RECEIPT", "TOTAL"],
         "travel": ["BOARDING PASS", "FLIGHT", "ITINERARY"],
+        "hotel": ["HOTEL CONFIRMATION", "ROOM TYPE", "CHECK-IN", "CHECK-OUT"],
+        "legal_notice": ["LEGAL NOTICE", "LOAN ACCOUNT", "OVERDUE AMOUNT"],
+        "shipping": ["DELIVERY ORDER", "BILL OF LADING", "CONTAINER NUMBER"],
         "unknown": ["COMMUNITY EVENT NOTICE", "MEETING ROOM FOUR", "REFERENCE ALPHA"],
     }
     results = {}
@@ -68,7 +71,7 @@ def test_CL_TC_001_all_families_and_unknown(api, evidence, auth_token, run_id):
         assert classification["family"] == expected
         assert 0 <= classification["confidence"] <= 1
         assert classification["provider"] == "builtin-rules"
-        assert classification["model_version"] == "keyword-v1"
+        assert classification["model_version"] == "keyword-v2"
         assert classification["method"] == "keyword_rules"
         assert classification["configured_threshold"] == 0.5
         provenance = classification["provenance"]
@@ -179,7 +182,7 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
         for name, criticality in expected[family].items():
             field = fields[name]
             assert field["criticality"] == criticality
-            assert field["schema_version"] == "schema-v0.1"
+            assert field["schema_version"] == "schema-v0.2"
             assert field["trust_state"] in {"extracted", "not_found"}
             if field["trust_state"] == "extracted":
                 assert field["value"] and 0 <= field["confidence"] <= 1
@@ -188,7 +191,7 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
             provenance = field["provenance"]
             assert provenance["source_document_id"] == result["document_id"]
             assert provenance["source_page_id"]
-            assert provenance["model_version"] == "schema-v0.1"
+            assert provenance["model_version"] == "schema-v0.2"
             assert provenance["method"] == "predefined_field_rules"
         results[family] = result
 
@@ -263,7 +266,7 @@ def test_EX_TC_001_predefined_family_fields(api, evidence, auth_token, run_id):
         fields = {f["field_name"]: f for f in result["fields"]}
         assert set(fields) == expected_names, f"{family} schema fields mismatch"
         for field in fields.values():
-            assert field["schema_version"] == "schema-v0.1"
+            assert field["schema_version"] == "schema-v0.2"
         results[family] = result
     evidence.note("predefined-family-fields", results)
     folder = EVIDENCE_DIR / "analysis"
@@ -311,7 +314,7 @@ def test_EX_TC_003_explicit_not_found_state(api, evidence, auth_token, run_id):
         assert fields[name]["trust_state"] == "not_found"
         assert fields[name]["value"] is None
         assert fields[name]["confidence"] is None
-        assert fields[name]["schema_version"] == "schema-v0.1"
+        assert fields[name]["schema_version"] == "schema-v0.2"
     evidence.note("explicit-not-found", result)
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)
@@ -409,7 +412,7 @@ def test_EX_TC_006_bounded_schema_extraction(api, evidence, auth_token, run_id):
     assert "blood_type" not in fields
     assert "favourite_colour" not in fields
     for field in fields.values():
-        assert field["schema_version"] == "schema-v0.1"
+        assert field["schema_version"] == "schema-v0.2"
     evidence.note("bounded-schema-extraction", result)
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)
