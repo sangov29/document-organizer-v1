@@ -194,9 +194,12 @@ def classify_text(text: str) -> ClassificationDecision:
     family, (weight, marker_count, distinctive_count) = ranked[0]
     runner_up_weight = ranked[1][1][0]
     if weight == 0:
-        confidence = settings.classification_known_threshold if any_marker_matched else 1.0
         reason = "insufficient_distinctive_evidence" if any_marker_matched else "no_known_family_evidence"
-        return ClassificationDecision(DocumentFamily.UNKNOWN, confidence, reason)
+        return ClassificationDecision(
+            DocumentFamily.UNKNOWN,
+            settings.classification_known_threshold,
+            reason,
+        )
 
     # One weak/generic phrase is not enough to name a family.  Competing
     # families with similar evidence also route to review instead of forcing a

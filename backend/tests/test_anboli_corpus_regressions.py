@@ -46,6 +46,15 @@ def test_single_generic_invoice_word_abstains():
     assert decision.abstention_reason == "insufficient_distinctive_evidence"
 
 
+def test_no_known_family_evidence_abstains_at_review_threshold():
+    decision = classify_text(
+        "COMMUNITY EVENT NOTICE MEETING ROOM FOUR REFERENCE ALPHA"
+    )
+    assert decision.family == DocumentFamily.UNKNOWN
+    assert decision.confidence == 0.5
+    assert decision.abstention_reason == "no_known_family_evidence"
+
+
 def test_unstructured_third_party_booking_remains_unknown():
     decision = classify_text("""
     Booking Confirmation
