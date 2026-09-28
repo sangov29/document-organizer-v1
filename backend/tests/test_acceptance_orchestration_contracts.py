@@ -73,10 +73,25 @@ def test_frontend_dependencies_are_patched_and_ui_install_is_reproducible():
 def test_harness_executes_backend_source_contracts_as_a_mandatory_evidence_stream():
     harness = (ROOT / "acceptance" / "run-local.sh").read_text()
 
+    assert harness.startswith("#!/usr/bin/env bash\nset -euo pipefail\n")
     assert "pytest -q tests" in harness
+    assert "env PYTHONPATH=/repo:/repo/backend pytest -q tests" in harness
     assert "junit-source-contracts.xml" in harness
     assert 'SOURCE_CONTRACT_EXIT=${PIPESTATUS[0]}' in harness
     assert "SOURCE_CONTRACT_EXIT -ne 0" in harness
+
+
+def test_abstention_reason_migration_supports_fresh_and_existing_databases():
+    migration = (
+        ROOT
+        / "backend"
+        / "alembic"
+        / "versions"
+        / "0015_classification_abstention_reason.py"
+    ).read_text()
+
+    assert "ADD COLUMN IF NOT EXISTS abstention_reason VARCHAR(128)" in migration
+    assert "DROP COLUMN IF EXISTS abstention_reason" in migration
 
 
 def test_timing_probe_uses_larger_sample_without_relaxing_security_tolerances():
