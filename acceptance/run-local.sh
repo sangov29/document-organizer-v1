@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -110,7 +110,7 @@ PY
 set +e
 "${COMPOSE[@]}" run --rm -T \
   -v "$ROOT:/repo:ro" -w /repo/backend backend \
-  env PYTHONPATH=/repo/backend pytest -q tests \
+  env PYTHONPATH=/repo:/repo/backend pytest -q tests \
   --junitxml=/evidence/junit-source-contracts.xml 2>&1 | tee "$EVIDENCE_DIR/source-contract-output.txt"
 SOURCE_CONTRACT_EXIT=${PIPESTATUS[0]}
 

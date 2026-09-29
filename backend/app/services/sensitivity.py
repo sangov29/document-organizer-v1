@@ -5,6 +5,21 @@ import re
 
 SENSITIVE_FIELD_TYPES = {
     "account_number": "financial_account",
+    "consumer_account_number": "financial_account",
+    "loan_account": "financial_account",
+    "document_number": "identity_number",
+    "service_connection": "utility_account",
+    "meter_number": "utility_account",
+    "booking_number": "travel_reference",
+    "booking_reference": "travel_reference",
+    "booking_id": "travel_reference",
+    "pnr": "travel_reference",
+    "ticket_number": "travel_reference",
+    "serial_number": "device_identifier",
+    "bill_of_lading": "shipping_reference",
+    "container_number": "shipping_reference",
+    "job_number": "shipping_reference",
+    "payment_reference": "payment_reference",
 }
 
 

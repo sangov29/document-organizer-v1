@@ -97,7 +97,7 @@ def test_adoption_requires_family_and_unknown_distribution():
     manifest = _manifest(documents)
     assert validator.validate(manifest, ROOT / "evaluation", False, "adoption") == []
 
-    manifest["documents"] = manifest["documents"][:-11]
+    manifest["documents"] = manifest["documents"][:99]
     errors = validator.validate(manifest, ROOT / "evaluation", False, "adoption")
     assert "adoption corpus requires at least 100 documents" in errors
     assert "adoption corpus requires at least 20 unknown documents" in errors
@@ -110,6 +110,18 @@ def test_manifest_rejects_path_traversal_and_bad_digest():
     errors = validator.validate(manifest, ROOT / "evaluation", False, "pilot")
     assert "documents[0].source_path must be a safe relative path under private/" in errors
     assert "documents[0].sha256 must be 64 lowercase hexadecimal characters" in errors
+
+
+def test_manifest_accepts_bbox_precision_and_rejects_unknown_precision():
+    manifest = _valid_pilot()
+    manifest["documents"][0]["fields"][0]["bbox_precision"] = "region"
+    manifest["documents"][0]["reviewer_a_label"]["fields"][0]["bbox_precision"] = "region"
+    manifest["documents"][0]["reviewer_b_label"]["fields"][0]["bbox_precision"] = "region"
+    assert validator.validate(manifest, ROOT / "evaluation", False, "pilot") == []
+
+    manifest["documents"][0]["fields"][0]["bbox_precision"] = "approximate"
+    errors = validator.validate(manifest, ROOT / "evaluation", False, "pilot")
+    assert "documents[0].fields[0].bbox_precision is invalid" in errors
 
 
 def test_two_reviewer_claim_without_evidence_is_rejected():

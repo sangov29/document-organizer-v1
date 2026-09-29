@@ -87,7 +87,7 @@ def test_invoice_receipt_schema_extracts_versioned_bounded_fields():
     for name in ("invoice_number", "invoice_date", "total_amount"):
         assert fields[name].criticality == "critical"
         assert fields[name].trust_state == TrustState.EXTRACTED
-        assert fields[name].schema_version == "schema-v0.1"
+        assert fields[name].schema_version == "schema-v0.2"
     assert fields["payment_due_date"].value is None
     assert fields["payment_due_date"].confidence is None
     assert fields["payment_due_date"].trust_state == TrustState.NOT_FOUND

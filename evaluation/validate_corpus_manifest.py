@@ -9,11 +9,16 @@ from collections import Counter
 from pathlib import Path
 
 
-FAMILIES = {"identity", "utility", "banking", "educational", "employment", "invoice_receipt", "travel", "unknown"}
+FAMILIES = {
+    "identity", "utility", "banking", "educational", "employment",
+    "invoice_receipt", "travel", "hotel", "legal_notice", "shipping",
+    "unknown",
+}
 OUT_OF_FAMILY_KINDS = {"certificate", "resume_cv", "plane_ticket", "boarding_pass", "other"}
 REQUIRED_OUT_OF_FAMILY_KINDS = {"certificate", "resume_cv", "plane_ticket", "boarding_pass"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 PERMISSION_BASES = {"owner_document", "written_consent", "realistic_synthetic", "public_domain"}
+BBOX_PRECISIONS = {"tight", "region", "page", "unresolved"}
 PLACEHOLDERS = {"", "tbd", "todo", "reviewer", "me", "n/a", "na", "test", "unknown", "pending"}
 AXIS_ORDER = ("family", "unknown_status", "presence", "value", "page", "region")
 
@@ -111,6 +116,8 @@ def _valid_label_evidence(label: dict) -> bool:
         if any(not isinstance(value, int) or value < 0 for value in bbox.values()):
             return False
         if bbox["width"] < 1 or bbox["height"] < 1:
+            return False
+        if "bbox_precision" in field and field["bbox_precision"] not in BBOX_PRECISIONS:
             return False
     return True
 
@@ -246,6 +253,8 @@ def validate(manifest: dict, root: Path, verify_files: bool, mode: str) -> list[
                 errors.append(f"{field_prefix}.bbox must contain x, y, width and height")
             elif any(not isinstance(value, int) or value < 0 for value in bbox.values()) or bbox["width"] < 1 or bbox["height"] < 1:
                 errors.append(f"{field_prefix}.bbox coordinates must be non-negative with positive size")
+            if "bbox_precision" in field and field["bbox_precision"] not in BBOX_PRECISIONS:
+                errors.append(f"{field_prefix}.bbox_precision is invalid")
         if verify_files and isinstance(source, str):
             path = root / source
             if not path.is_file():

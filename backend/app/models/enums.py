@@ -9,6 +9,9 @@ class DocumentFamily(str, enum.Enum):
     EMPLOYMENT = "employment"
     INVOICE_RECEIPT = "invoice_receipt"
     TRAVEL = "travel"
+    HOTEL = "hotel"
+    LEGAL_NOTICE = "legal_notice"
+    SHIPPING = "shipping"
     UNKNOWN = "unknown"
 
 

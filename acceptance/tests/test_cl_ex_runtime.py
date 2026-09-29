@@ -51,24 +51,39 @@ def _upload_and_wait(api, token: str, run_id: str, label: str, lines: list[str])
 @pytest.mark.catalogue("CL-TC-001", steps="1-6")
 def test_CL_TC_001_all_families_and_unknown(api, evidence, auth_token, run_id):
     fixtures = {
-        "identity": ["PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH"],
-        "utility": ["UTILITY BILL", "ELECTRICITY SERVICE", "AMOUNT DUE"],
-        "banking": ["BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN"],
-        "educational": ["ACADEMIC TRANSCRIPT", "UNIVERSITY", "CERTIFICATE"],
-        "employment": ["EMPLOYMENT PAYSLIP", "SALARY", "EMPLOYER"],
-        "invoice_receipt": ["TAX INVOICE", "RECEIPT", "TOTAL"],
-        "travel": ["BOARDING PASS", "FLIGHT", "ITINERARY"],
-        "unknown": ["COMMUNITY EVENT NOTICE", "MEETING ROOM FOUR", "REFERENCE ALPHA"],
+        "identity": ("identity", None, ["PASSPORT", "IDENTITY DOCUMENT", "DATE OF BIRTH"]),
+        "utility": ("utility", None, ["UTILITY BILL", "ELECTRICITY SERVICE", "AMOUNT DUE"]),
+        "banking": ("banking", None, ["BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN"]),
+        "educational": ("educational", None, ["ACADEMIC TRANSCRIPT", "UNIVERSITY", "CERTIFICATE"]),
+        "employment": ("employment", None, ["EMPLOYMENT PAYSLIP", "SALARY", "EMPLOYER"]),
+        "invoice_receipt": ("invoice_receipt", None, ["TAX INVOICE", "RECEIPT", "TOTAL"]),
+        "travel": ("travel", None, ["BOARDING PASS", "FLIGHT", "ITINERARY"]),
+        "hotel": ("hotel", None, [
+            "HOTEL CONFIRMATION", "ROOM TYPE: Deluxe",
+            "CHECK-IN: 12 December 2026", "CHECK-OUT: 15 December 2026",
+        ]),
+        # These schemas remain available for reviewed/manual assignment, but
+        # automatic promotion is intentionally deferred in this fix cycle.
+        "legal_notice_deferred": ("unknown", "family_schema_available_but_auto_classification_deferred", [
+            "LEGAL NOTICE", "LOAN ACCOUNT", "OVERDUE AMOUNT",
+        ]),
+        "shipping_deferred": ("unknown", "family_schema_available_but_auto_classification_deferred", [
+            "DELIVERY ORDER", "BILL OF LADING", "CONTAINER NUMBER",
+        ]),
+        "unknown": ("unknown", "no_known_family_evidence", [
+            "COMMUNITY EVENT NOTICE", "MEETING ROOM FOUR", "REFERENCE ALPHA",
+        ]),
     }
     results = {}
-    for expected, lines in fixtures.items():
-        result = _upload_and_wait(api, auth_token, run_id, f"cl001-{expected}", lines)
+    for case_id, (expected, abstention_reason, lines) in fixtures.items():
+        result = _upload_and_wait(api, auth_token, run_id, f"cl001-{case_id}", lines)
         evidence.document(result["document_id"])
         classification = result["classification"]
         assert classification["family"] == expected
+        assert classification["abstention_reason"] == abstention_reason
         assert 0 <= classification["confidence"] <= 1
         assert classification["provider"] == "builtin-rules"
-        assert classification["model_version"] == "keyword-v1"
+        assert classification["model_version"] == "keyword-v2"
         assert classification["method"] == "keyword_rules"
         assert classification["configured_threshold"] == 0.5
         provenance = classification["provenance"]
@@ -78,7 +93,7 @@ def test_CL_TC_001_all_families_and_unknown(api, evidence, auth_token, run_id):
         assert provenance["model_version"] == classification["model_version"]
         assert provenance["method"] == classification["method"]
         assert provenance["processed_at"]
-        results[expected] = result
+        results[case_id] = result
 
     evidence.note("classification-outcomes", results)
     folder = EVIDENCE_DIR / "analysis"
@@ -179,7 +194,7 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
         for name, criticality in expected[family].items():
             field = fields[name]
             assert field["criticality"] == criticality
-            assert field["schema_version"] == "schema-v0.1"
+            assert field["schema_version"] == "schema-v0.2"
             assert field["trust_state"] in {"extracted", "not_found"}
             if field["trust_state"] == "extracted":
                 assert field["value"] and 0 <= field["confidence"] <= 1
@@ -188,7 +203,7 @@ def test_EX_TC_008_versioned_predefined_field_criticality(api, evidence, auth_to
             provenance = field["provenance"]
             assert provenance["source_document_id"] == result["document_id"]
             assert provenance["source_page_id"]
-            assert provenance["model_version"] == "schema-v0.1"
+            assert provenance["model_version"] == "schema-v0.2"
             assert provenance["method"] == "predefined_field_rules"
         results[family] = result
 
@@ -263,7 +278,7 @@ def test_EX_TC_001_predefined_family_fields(api, evidence, auth_token, run_id):
         fields = {f["field_name"]: f for f in result["fields"]}
         assert set(fields) == expected_names, f"{family} schema fields mismatch"
         for field in fields.values():
-            assert field["schema_version"] == "schema-v0.1"
+            assert field["schema_version"] == "schema-v0.2"
         results[family] = result
     evidence.note("predefined-family-fields", results)
     folder = EVIDENCE_DIR / "analysis"
@@ -311,7 +326,7 @@ def test_EX_TC_003_explicit_not_found_state(api, evidence, auth_token, run_id):
         assert fields[name]["trust_state"] == "not_found"
         assert fields[name]["value"] is None
         assert fields[name]["confidence"] is None
-        assert fields[name]["schema_version"] == "schema-v0.1"
+        assert fields[name]["schema_version"] == "schema-v0.2"
     evidence.note("explicit-not-found", result)
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)
@@ -409,7 +424,7 @@ def test_EX_TC_006_bounded_schema_extraction(api, evidence, auth_token, run_id):
     assert "blood_type" not in fields
     assert "favourite_colour" not in fields
     for field in fields.values():
-        assert field["schema_version"] == "schema-v0.1"
+        assert field["schema_version"] == "schema-v0.2"
     evidence.note("bounded-schema-extraction", result)
     folder = EVIDENCE_DIR / "analysis"
     folder.mkdir(parents=True, exist_ok=True)

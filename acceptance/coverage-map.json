@@ -219,12 +219,32 @@
         "test_CL_TC_001_all_families_and_unknown"
       ],
       "steps": {
-        "1": "deterministic fixtures cover seven known families and OOD Unknown",
+        "1": "deterministic fixtures cover eight automatically classified families, two schema-available deferred families that must abstain, and OOD Unknown",
         "2": "each source is uploaded through the public API",
         "3": "classification runs after persisted OCR",
         "4": "exactly one active outcome is returned per document",
         "5": "confidence, configured threshold, provider, model, method and timestamp are returned",
         "6": "document/page provenance is returned and machine-readable evidence is saved"
+      },
+      "family_scope": {
+        "automatic": [
+          "identity",
+          "utility",
+          "banking",
+          "educational",
+          "employment",
+          "invoice_receipt",
+          "travel",
+          "hotel"
+        ],
+        "deferred": {
+          "legal_notice": "family_schema_available_but_auto_classification_deferred",
+          "shipping": "family_schema_available_but_auto_classification_deferred"
+        },
+        "out_of_distribution": {
+          "expected_family": "unknown",
+          "abstention_reason": "no_known_family_evidence"
+        }
       },
       "evidence": "analysis/CL-TC-001-results.json and recorded public API responses",
       "claim_limit": "Deterministic keyword-fixture behavior only; corpus precision/recall/F1 and false-known/false-unknown rates remain AI-EVAL work"
@@ -267,13 +287,13 @@
     },
     "CL-TC-005": {
       "pytest": [
-        "test_CL_TC_005_confident_unknown_is_valid_outcome"
+        "test_CL_TC_005_zero_marker_unknown_abstains_for_review"
       ],
       "steps": {
         "1": "zero-marker OOD fixture uploaded",
         "2": "Unknown assigned",
-        "3": "confidence indicates no known-family evidence",
-        "4": "valid Unknown is not forced into review"
+        "3": "confidence is capped at the configured review threshold and no-known-family evidence is explicit",
+        "4": "Unknown is routed to review instead of being presented as confidently resolved"
       }
     },
     "EX-TC-008": {
@@ -289,7 +309,7 @@
         "6": "document/page/provider/schema/method/timestamp provenance is returned and saved"
       },
       "evidence": "analysis/EX-TC-008-results.json and recorded public API responses",
-      "schema_decision": "schema-v0.1; Invoice/Receipt defines invoice number, invoice date and total amount as individually critical, with bounded standard vendor/customer/subtotal/tax/currency/payment-due fields",
+      "schema_decision": "schema-v0.2; bounded schemas cover identity, utility, banking, invoice/receipt, travel, hotel, legal notice and shipping fields; annual reports remain out of scope",
       "claim_limit": "Deterministic rule fixtures only; correction/confirmation UI and corpus extraction accuracy remain later gates"
     },
     "EX-TC-009": {
@@ -517,7 +537,7 @@
       ],
       "steps": {
         "1": "Identity, Utility, Banking and Invoice/Receipt fixtures uploaded through the public API",
-        "2": "active versioned schema (schema-v0.1) selected per family",
+        "2": "active versioned schema (schema-v0.2) selected per family",
         "3": "every defined field for each family is attempted, found or explicit not_found"
       },
       "evidence": "analysis/EX-TC-001-results.json and recorded public API responses",
