@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.models.enums import DocumentFamily
+from app.models.enums import DocumentFamily, TrustState
 from app.services.analysis import extract_predefined_fields
 
 
@@ -89,27 +89,71 @@ def test_existing_correct_fields_do_not_regress(
 
 
 @pytest.mark.parametrize(
-    ("family", "text", "field"),
+    ("text", "expected"),
     [
         (
-            DocumentFamily.TRAVEL,
-            "Srilankan Tue, 16 Dec, 2025 Tue, 16 Dec, 2025",
-            "departure_date",
+            "UL 138 IXM 10:15:00.000 Srilankan Tue, 16 Dec, 2025",
+            "16 Dec 2025",
         ),
         (
-            DocumentFamily.TRAVEL,
-            "Singapore Chennai\nSaturday 18 Oct 2025 Saturday 18 Oct 2025",
-            "departure_date",
+            "SIN 07:40 Singapore Saturday 18 Oct 2025 Changi Terminal 3",
+            "18 Oct 2025",
         ),
     ],
 )
-def test_label_less_travel_dates_remain_unextracted_in_this_cycle(
-    family: DocumentFamily,
+def test_label_less_travel_date_fallback_extracts_unique_structured_candidate(
     text: str,
-    field: str,
+    expected: str,
 ):
-    """These two residual cases require layout support, not label matching."""
-    assert _values(family, text)[field] is None
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] == expected
+
+
+def test_label_less_travel_date_fallback_is_low_confidence_and_inferred():
+    text = "SIN 07:40 Singapore Saturday 18 Oct 2025 Changi Terminal 3"
+    field = next(
+        field
+        for field in extract_predefined_fields(DocumentFamily.TRAVEL, text)
+        if field.name == "departure_date"
+    )
+    assert field.value == "18 Oct 2025"
+    assert field.confidence == 0.75
+    assert field.trust_state == TrustState.INFERRED
+
+
+def test_labelled_departure_date_wins_over_label_less_fallback():
+    text = """
+    Departure Date: 20 Dec 2025
+    UL 138 IXM 10:15:00.000 Srilankan Tue, 16 Dec, 2025
+    """
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] == "20 Dec 2025"
+
+
+def test_label_less_travel_date_fallback_abstains_when_candidates_are_ambiguous():
+    text = """
+    UL 138 IXM 10:15:00 Srilankan Tue, 16 Dec, 2025
+    UL 139 CMB 18:45:00 Srilankan Fri, 19 Dec, 2025
+    """
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Terms updated on Tuesday 16 Dec 2025 for all passengers.",
+        "Invoice Date: 18 Oct 2025",
+        "Meeting at 07:40 on Saturday 18 Oct 2025.",
+        "SIN 07:40 Singapore Friday 31 Feb 2025 Changi Terminal 3",
+    ],
+)
+def test_label_less_travel_date_fallback_rejects_unstructured_dates(text: str):
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] is None
+
+
+def test_label_less_travel_date_fallback_is_not_used_for_other_families():
+    text = "SIN 07:40 Singapore Saturday 18 Oct 2025 Changi Terminal 3"
+    values = _values(DocumentFamily.HOTEL, text)
+    assert values["check_in"] is None
+    assert values["check_out"] is None
 
 
 def test_embedded_matching_requires_a_label_boundary_and_delimiter():
