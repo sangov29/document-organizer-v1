@@ -182,8 +182,6 @@ class GenericFieldDecision:
     trust_state: TrustState
     criticality: str = "standard"
     schema_version: str | None = None
-# PDF text layers often preserve columns as a long whitespace gap
-
 
 
 def classify_text(text: str) -> ClassificationDecision:
@@ -292,6 +290,7 @@ def _extract_label_value(text: str, labels: tuple[str, ...], inferred: bool = Fa
                 value = _clean_extracted_value(following)
                 if value:
                     return value
+
         # PDF text layers often preserve columns as a long whitespace gap
         # instead of a colon. This remains line-start anchored so an alias
         # cannot fire on prose elsewhere in the row.
