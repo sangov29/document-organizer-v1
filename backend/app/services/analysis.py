@@ -182,6 +182,8 @@ class GenericFieldDecision:
     trust_state: TrustState
     criticality: str = "standard"
     schema_version: str | None = None
+# PDF text layers often preserve columns as a long whitespace gap
+
 
 
 def classify_text(text: str) -> ClassificationDecision:
