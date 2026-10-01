@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.core.config import settings
 from app.models.enums import DocumentFamily, TrustState
@@ -346,6 +347,66 @@ def _extract_invoice_number_below_header(text: str) -> str | None:
     return None
 
 
+_TRAVEL_DATE_PATTERN = re.compile(
+    r"\b(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|"
+    r"Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?),?[ \t]+"
+    r"(?P<day>\d{1,2})[ \t]+"
+    r"(?P<month>Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|"
+    r"Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|"
+    r"Nov(?:ember)?|Dec(?:ember)?),?[ \t]+(?P<year>20\d{2})\b",
+    re.I,
+)
+_TRAVEL_TIME_PATTERN = re.compile(
+    r"\b(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?\b"
+)
+_TRAVEL_FLIGHT_PATTERN = re.compile(r"\b[A-Z]{2,3}[ \t]+\d{2,4}\b")
+_TRAVEL_IATA_PATTERN = re.compile(r"\b[A-Z]{3}\b")
+_MONTH_ABBREVIATIONS = {
+    "jan": "Jan", "january": "Jan",
+    "feb": "Feb", "february": "Feb",
+    "mar": "Mar", "march": "Mar",
+    "apr": "Apr", "april": "Apr",
+    "may": "May",
+    "jun": "Jun", "june": "Jun",
+    "jul": "Jul", "july": "Jul",
+    "aug": "Aug", "august": "Aug",
+    "sep": "Sep", "september": "Sep",
+    "oct": "Oct", "october": "Oct",
+    "nov": "Nov", "november": "Nov",
+    "dec": "Dec", "december": "Dec",
+}
+
+
+def _extract_label_less_travel_date(text: str) -> str | None:
+    """Select one strongly structured, otherwise-unlabelled travel date.
+
+    This is deliberately a fallback, not a general date extractor. A candidate
+    must share a line with a time, a weekday, and a flight/airport code. If two
+    distinct dates qualify, the result is ambiguous and remains ``not_found``.
+    """
+    candidates: set[str] = set()
+    for line in text.splitlines():
+        if not _TRAVEL_TIME_PATTERN.search(line):
+            continue
+        if not (
+            _TRAVEL_FLIGHT_PATTERN.search(line)
+            or _TRAVEL_IATA_PATTERN.search(line)
+        ):
+            continue
+        for match in _TRAVEL_DATE_PATTERN.finditer(line):
+            day = int(match.group("day"))
+            if not 1 <= day <= 31:
+                continue
+            month = _MONTH_ABBREVIATIONS[match.group("month").casefold()]
+            normalized = f"{day:02d} {month} {match.group('year')}"
+            try:
+                datetime.strptime(normalized, "%d %b %Y")
+            except ValueError:
+                continue
+            candidates.add(normalized)
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
 def extract_predefined_fields(family: DocumentFamily, text: str) -> list[GenericFieldDecision]:
     schema = PREDEFINED_SCHEMAS.get(family, {})
     fields = []
@@ -355,10 +416,16 @@ def extract_predefined_fields(family: DocumentFamily, text: str) -> list[Generic
             value = _extract_invoice_number_below_header(text)
         inferred_value = _extract_label_value(text, labels, inferred=True) if not value else None
         value = value or inferred_value
+        fallback_value = None
+        if family == DocumentFamily.TRAVEL and name == "departure_date" and not value:
+            fallback_value = _extract_label_less_travel_date(text)
+            value = fallback_value
         fields.append(GenericFieldDecision(
-            name=name, value=value, confidence=0.90 if value else None,
+            name=name,
+            value=value,
+            confidence=0.75 if fallback_value else 0.90 if value else None,
             trust_state=(
-                TrustState.INFERRED if inferred_value
+                TrustState.INFERRED if inferred_value or fallback_value
                 else TrustState.EXTRACTED if value
                 else TrustState.NOT_FOUND
             ),
