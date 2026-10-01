@@ -82,7 +82,15 @@ PREDEFINED_SCHEMAS: dict[DocumentFamily, dict[str, tuple[str, tuple[str, ...]]]]
     DocumentFamily.UTILITY: {
         "account_holder": ("critical", ("Account Holder", "Customer Name")),
         "service_address": ("critical", ("Service Address", "Supply Address")),
-        "consumer_account_number": ("critical", ("Consumer Number", "Account Number")),
+        "consumer_account_number": (
+            "critical",
+            (
+                "Consumer Number",
+                "Account Number",
+                "Service Connection Number",
+                "Servie Connection Number",
+            ),
+        ),
         "billing_period": ("standard", ("Billing Period",)),
         "amount_due": ("critical", ("Amount Due",)),
         "due_date": ("critical", ("Due Date",)),
@@ -101,7 +109,10 @@ PREDEFINED_SCHEMAS: dict[DocumentFamily, dict[str, tuple[str, tuple[str, ...]]]]
             ("Invoice Number", "Invoice No", "Receipt Number", "Receipt No"),
         ),
         "invoice_date": ("critical", ("Invoice Date", "Receipt Date", "Date of issue", "Date")),
-        "customer_name": ("standard", ("Customer Name", "Bill To")),
+        "customer_name": (
+            "standard",
+            ("Customer Name", "Bill To", "Name of Customer(Billed to)"),
+        ),
         "subtotal": ("standard", ("Subtotal", "Sub Total")),
         "tax_amount": ("standard", ("Tax Amount", "Tax", "GST", "VAT")),
         "total_amount": ("critical", ("Total Amount after Tax", "Total Amount", "Grand Total", "Amount Due", "Total")),
@@ -120,8 +131,11 @@ PREDEFINED_SCHEMAS: dict[DocumentFamily, dict[str, tuple[str, tuple[str, ...]]]]
     },
     DocumentFamily.HOTEL: {
         "booking_number": ("critical", ("Booking Number", "Booking ID", "Confirmation Number")),
-        "guest_name": ("critical", ("Guest", "Guest Name", "Client")),
-        "property_name": ("critical", ("Hotel", "Property", "Property Name")),
+        "guest_name": ("critical", ("Guest", "Guest Name", "Client", "Name")),
+        "property_name": (
+            "critical",
+            ("Hotel", "Hotel Name", "Property", "Property Name"),
+        ),
         "room_type": ("standard", ("Room Type", "Room")),
         "check_in": ("critical", ("Check-in", "Check In", "Arrival Date")),
         "check_out": ("critical", ("Check-out", "Check Out", "Departure Date")),
@@ -248,6 +262,11 @@ def _clean_extracted_value(value: str) -> str | None:
     # ``Total Amount``.  This was the source of the corpus's "GST :" error.
     if re.match(r"^[A-Za-z][A-Za-z /&().-]{0,30}\s*:", cleaned):
         return None
+    # Some travel exports repeat the same reference on the same line. Keep
+    # one value only when every comma-separated token is identical.
+    repeated = [item.strip() for item in cleaned.split(",")]
+    if len(repeated) > 1 and repeated[0] and len(set(repeated)) == 1:
+        return repeated[0]
     return cleaned
 
 
@@ -271,6 +290,59 @@ def _extract_label_value(text: str, labels: tuple[str, ...], inferred: bool = Fa
                 value = _clean_extracted_value(following)
                 if value:
                     return value
+
+        # PDF text layers often preserve columns as a long whitespace gap
+        # instead of a colon. This remains line-start anchored so an alias
+        # cannot fire on prose elsewhere in the row.
+        column_labels = {
+            "service connection number",
+            "servie connection number",
+            "name of customer(billed to)",
+        }
+        if label.casefold() in column_labels:
+            column_pattern = re.compile(
+                rf"^[ \t]*{prefix}{re.escape(label)}[ \t]{{2,}}(.+)$",
+                re.I,
+            )
+            for line in lines:
+                match = column_pattern.match(line)
+                if match:
+                    value = _clean_extracted_value(match.group(1))
+                    if value:
+                        return value
+
+        # A labelled field may follow another column on the same text-layer
+        # line. Require a word boundary before the complete alias and a colon
+        # immediately after it. Short generic aliases such as ``Name`` are
+        # excluded here so they cannot match inside ``Hotel Name``.
+        if len(label) > 4 or label.casefold() == "pnr":
+            embedded_pattern = re.compile(
+                rf"(?<![A-Za-z0-9_]){prefix}{re.escape(label)}\)?[ \t]*:[ \t]*(.+)$",
+                re.I,
+            )
+            for line in lines:
+                if not inferred and line.lstrip().casefold().startswith("inferred "):
+                    continue
+                match = embedded_pattern.search(line)
+                if match:
+                    value = _clean_extracted_value(match.group(1))
+                    if value:
+                        return value
+    return None
+
+
+def _extract_invoice_number_below_header(text: str) -> str | None:
+    """Extract a bounded label-less invoice number directly below its header."""
+    lines = text.splitlines()
+    header = re.compile(r"^[ \t]*(?:tax|gst)[ \t]+invoice[ \t]*$", re.I)
+    candidate = re.compile(r"^[A-Z0-9][A-Z0-9/-]{5,30}$", re.I)
+    for index, line in enumerate(lines):
+        if not header.match(line):
+            continue
+        for following in lines[index + 1:index + 3]:
+            value = following.strip()
+            if value and candidate.fullmatch(value) and any(char.isdigit() for char in value):
+                return value
     return None
 
 
@@ -279,6 +351,8 @@ def extract_predefined_fields(family: DocumentFamily, text: str) -> list[Generic
     fields = []
     for name, (criticality, labels) in schema.items():
         value = _extract_label_value(text, labels)
+        if family == DocumentFamily.INVOICE_RECEIPT and name == "invoice_number" and not value:
+            value = _extract_invoice_number_below_header(text)
         inferred_value = _extract_label_value(text, labels, inferred=True) if not value else None
         value = value or inferred_value
         fields.append(GenericFieldDecision(
