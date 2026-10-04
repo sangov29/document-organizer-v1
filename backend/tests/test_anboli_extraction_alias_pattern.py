@@ -72,6 +72,63 @@ def test_reviewed_alias_and_pattern_cases_extract(
 @pytest.mark.parametrize(
     ("family", "text", "field", "expected"),
     [
+        (
+            DocumentFamily.UTILITY,
+            "Servie Connection Number\nTariff\nPhase\n02-501-009-2",
+            "consumer_account_number",
+            "02-501-009-2",
+        ),
+        (
+            DocumentFamily.HOTEL,
+            "Name\n: GOVARTHANAN KRISHNAMOORTY\nID No.\n: U0801712\nMember Card No.\n: 66956546",
+            "guest_name",
+            "GOVARTHANAN KRISHNAMOORTY",
+        ),
+        (
+            DocumentFamily.INVOICE_RECEIPT,
+            "Name of Customer(Billed to)\nAddress\nGSTIN\nGOVARTHANAN K",
+            "customer_name",
+            "GOVARTHANAN K",
+        ),
+        (
+            DocumentFamily.INVOICE_RECEIPT,
+            "TAX INVOICE\nOriginal for recipient\nInvoice date\nSupplier GSTIN\nJWGI25002928",
+            "invoice_number",
+            "JWGI25002928",
+        ),
+    ],
+)
+def test_reviewed_fields_extract_when_live_ocr_separates_label_and_value(
+    family: DocumentFamily,
+    text: str,
+    field: str,
+    expected: str,
+):
+    assert _values(family, text)[field] == expected
+
+
+@pytest.mark.parametrize(
+    ("family", "text", "field"),
+    [
+        (DocumentFamily.UTILITY, "Service Connection Number\nAmount Due\nDue Date", "consumer_account_number"),
+        (DocumentFamily.HOTEL, "Name\nRoom\nCheck In\nCheck Out", "guest_name"),
+        (DocumentFamily.HOTEL, "Name\nID No.\nNationality\nRoom", "guest_name"),
+        (DocumentFamily.HOTEL, "Name\nID No.\nMember Card No.\nRoom", "guest_name"),
+        (DocumentFamily.INVOICE_RECEIPT, "Name of Customer(Billed to)\nAddress\nTax\nTotal", "customer_name"),
+        (DocumentFamily.INVOICE_RECEIPT, "TAX INVOICE\n17 Aug 2025\n59.00\nOriginal copy", "invoice_number"),
+    ],
+)
+def test_separated_ocr_matching_rejects_neighbouring_headers_dates_and_amounts(
+    family: DocumentFamily,
+    text: str,
+    field: str,
+):
+    assert _values(family, text)[field] is None
+
+
+@pytest.mark.parametrize(
+    ("family", "text", "field", "expected"),
+    [
         (DocumentFamily.HOTEL, "Room Type: Deluxe Room", "room_type", "Deluxe Room"),
         (DocumentFamily.HOTEL, "Check In: 12 December 2025", "check_in", "12 December 2025"),
         (DocumentFamily.HOTEL, "Check Out: 15 December 2025", "check_out", "15 December 2025"),
