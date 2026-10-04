@@ -108,6 +108,66 @@ def test_label_less_travel_date_fallback_extracts_unique_structured_candidate(
     assert _values(DocumentFamily.TRAVEL, text)["departure_date"] == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "UL 138\nIXM\n10:15:00.000\nSrilankan\nTue, 16 Dec, 2025",
+            "16 Dec 2025",
+        ),
+        (
+            "SIN\n07:40\nSingapore\nSaturday 18 Oct 2025\nChangi Terminal 3",
+            "18 Oct 2025",
+        ),
+    ],
+)
+def test_label_less_travel_date_fallback_handles_adjacent_paddle_ocr_blocks(
+    text: str,
+    expected: str,
+):
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] == expected
+
+
+def test_label_less_travel_date_fallback_uses_first_live_ocr_departing_section():
+    text = """
+    11 Aug 2025
+    1. SQ524 · Singapore to Chennai
+    DEPARTING
+    SIN 07:40
+    MAA 09:20
+    Singapore Airlines . SQ524
+    Singapore
+    Saturday 18 Oct 2025
+    Saturday 18 Oct 2025
+    Changi
+    2. SQ529 · Chennai to Singapore
+    DEPARTING
+    MAA 23:25
+    SIN 05:55
+    Singapore Airlines . SQ529
+    Singapore
+    Saturday 01 Nov 2025
+    Sunday 02 Nov 2025
+    Changi
+    """
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] == "18 Oct 2025"
+
+
+def test_label_less_travel_date_fallback_abstains_for_ambiguous_first_departing_section():
+    text = """
+    DEPARTING
+    SIN 23:25
+    MAA 05:55
+    Saturday 18 Oct 2025
+    Sunday 19 Oct 2025
+    DEPARTING
+    MAA 07:40
+    SIN 09:20
+    Saturday 01 Nov 2025
+    """
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] is None
+
+
 def test_label_less_travel_date_fallback_is_low_confidence_and_inferred():
     text = "SIN 07:40 Singapore Saturday 18 Oct 2025 Changi Terminal 3"
     field = next(
@@ -132,6 +192,20 @@ def test_label_less_travel_date_fallback_abstains_when_candidates_are_ambiguous(
     text = """
     UL 138 IXM 10:15:00 Srilankan Tue, 16 Dec, 2025
     UL 139 CMB 18:45:00 Srilankan Fri, 19 Dec, 2025
+    """
+    assert _values(DocumentFamily.TRAVEL, text)["departure_date"] is None
+
+
+def test_label_less_travel_date_fallback_abstains_for_ambiguous_split_ocr_blocks():
+    text = """
+    UL 138
+    IXM
+    10:15:00
+    Tue, 16 Dec, 2025
+    UL 139
+    CMB
+    18:45:00
+    Fri, 19 Dec, 2025
     """
     assert _values(DocumentFamily.TRAVEL, text)["departure_date"] is None
 
