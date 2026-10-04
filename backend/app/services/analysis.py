@@ -296,6 +296,8 @@ def _is_plausible_separated_ocr_value(label: str, value: str) -> bool:
     candidate = value.strip().strip(":")
     if not candidate or ":" in candidate or len(candidate) > 100:
         return False
+    if re.fullmatch(r"(?:id|passport)[ ._-]*(?:no|number)\.?", candidate, re.I):
+        return False
     known_labels = {
         schema_label.casefold()
         for schema in PREDEFINED_SCHEMAS.values()
