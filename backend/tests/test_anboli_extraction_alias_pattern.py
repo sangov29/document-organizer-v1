@@ -80,7 +80,7 @@ def test_reviewed_alias_and_pattern_cases_extract(
         ),
         (
             DocumentFamily.HOTEL,
-            "Name\nID No.\nNationality\nMember Card No.\nGOVARTHANAN KRISHNAMOORTY",
+            "Name\n: GOVARTHANAN KRISHNAMOORTY\nID No.\n: U0801712\nMember Card No.\n: 66956546",
             "guest_name",
             "GOVARTHANAN KRISHNAMOORTY",
         ),

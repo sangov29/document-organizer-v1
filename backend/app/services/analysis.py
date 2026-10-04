@@ -360,6 +360,9 @@ def _extract_label_value(text: str, labels: tuple[str, ...], inferred: bool = Fa
                 if not standalone_label.fullmatch(line):
                     continue
                 for following in lines[index + 1:index + 7]:
+                    # PaddleOCR may emit the delimiter with the value as its
+                    # own block: ``Name`` followed by ``: Jane Doe``.
+                    following = re.sub(r"^[ \t]*:[ \t]*", "", following, count=1)
                     value = _clean_extracted_value(following)
                     if value and _is_plausible_separated_ocr_value(label, value):
                         return value
