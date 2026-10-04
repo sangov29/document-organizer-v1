@@ -271,6 +271,54 @@ def _clean_extracted_value(value: str) -> str | None:
     return cleaned
 
 
+_OCR_SEPARATED_VALUE_LABELS = {
+    "service connection number",
+    "servie connection number",
+    "name of customer(billed to)",
+    "name",
+}
+_OCR_HEADING_WORDS = {
+    "address", "amount", "bill", "billing", "customer", "date", "description",
+    "details", "email", "gst", "gstin", "invoice", "name", "nationality",
+    "phase", "phone", "room", "tariff", "tax", "total",
+}
+
+
+def _is_plausible_separated_ocr_value(label: str, value: str) -> bool:
+    """Validate values found several OCR blocks after a standalone label.
+
+    PaddleOCR emits table cells as individual lines in reading order.  We only
+    use the wider look-ahead for reviewed labels and require a value shape that
+    is specific enough to avoid turning a neighbouring table heading into a
+    field value.
+    """
+    normalized_label = label.casefold()
+    candidate = value.strip().strip(":")
+    if not candidate or ":" in candidate or len(candidate) > 100:
+        return False
+    known_labels = {
+        schema_label.casefold()
+        for schema in PREDEFINED_SCHEMAS.values()
+        for _, labels in schema.values()
+        for schema_label in labels
+    }
+    if candidate.casefold() in known_labels:
+        return False
+    words = {word.casefold() for word in re.findall(r"[A-Za-z]+", candidate)}
+    if words and words <= _OCR_HEADING_WORDS:
+        return False
+    if normalized_label in {"service connection number", "servie connection number"}:
+        return bool(
+            re.fullmatch(r"[A-Z0-9][A-Z0-9 /-]{4,30}", candidate, re.I)
+            and any(char.isdigit() for char in candidate)
+        )
+    # The two reviewed name labels contain names, not free-form prose or IDs.
+    return bool(
+        re.fullmatch(r"[A-Za-z][A-Za-z .'-]{2,79}", candidate)
+        and len(candidate.split()) <= 8
+    )
+
+
 def _extract_label_value(text: str, labels: tuple[str, ...], inferred: bool = False) -> str | None:
     lines = text.splitlines()
     prefix = r"inferred[ \t]+" if inferred else ""
@@ -291,6 +339,22 @@ def _extract_label_value(text: str, labels: tuple[str, ...], inferred: bool = Fa
                 value = _clean_extracted_value(following)
                 if value:
                     return value
+
+        # Live PaddleOCR sometimes separates a table label and its value by
+        # several intervening cells.  Use a bounded look-ahead only for the
+        # reviewed labels whose value shapes can be validated conservatively.
+        if not inferred and label.casefold() in _OCR_SEPARATED_VALUE_LABELS:
+            standalone_label = re.compile(
+                rf"^[ \t]*{re.escape(label)}[ \t]*:?\s*$",
+                re.I,
+            )
+            for index, line in enumerate(lines):
+                if not standalone_label.fullmatch(line):
+                    continue
+                for following in lines[index + 1:index + 7]:
+                    value = _clean_extracted_value(following)
+                    if value and _is_plausible_separated_ocr_value(label, value):
+                        return value
 
         # PDF text layers often preserve columns as a long whitespace gap
         # instead of a colon. This remains line-start anchored so an alias
@@ -340,9 +404,17 @@ def _extract_invoice_number_below_header(text: str) -> str | None:
     for index, line in enumerate(lines):
         if not header.match(line):
             continue
-        for following in lines[index + 1:index + 3]:
+        # OCR reading order may place several header cells between TAX INVOICE
+        # and the label-less identifier.  Keep this bounded and identifier-
+        # shaped so totals, dates, and prose cannot be selected.
+        for following in lines[index + 1:index + 9]:
             value = following.strip()
-            if value and candidate.fullmatch(value) and any(char.isdigit() for char in value):
+            if (
+                value
+                and candidate.fullmatch(value)
+                and any(char.isdigit() for char in value)
+                and any(char.isalpha() for char in value)
+            ):
                 return value
     return None
 
