@@ -315,6 +315,12 @@ def _is_plausible_separated_ocr_value(label: str, value: str) -> bool:
             and any(char.isdigit() for char in candidate)
         )
     # The two reviewed name labels contain names, not free-form prose or IDs.
+    name_heading_tokens = {
+        "card", "customer", "guest", "id", "member", "nationality", "no",
+        "number", "passport", "room",
+    }
+    if words & name_heading_tokens:
+        return False
     return bool(
         re.fullmatch(r"[A-Za-z][A-Za-z .'-]{2,79}", candidate)
         and len(candidate.split()) <= 8

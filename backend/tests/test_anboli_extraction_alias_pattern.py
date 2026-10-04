@@ -80,7 +80,7 @@ def test_reviewed_alias_and_pattern_cases_extract(
         ),
         (
             DocumentFamily.HOTEL,
-            "Name\nID No.\nNationality\nRoom\nGOVARTHANAN KRISHNAMOORTY",
+            "Name\nID No.\nNationality\nMember Card No.\nGOVARTHANAN KRISHNAMOORTY",
             "guest_name",
             "GOVARTHANAN KRISHNAMOORTY",
         ),
@@ -113,6 +113,7 @@ def test_reviewed_fields_extract_when_live_ocr_separates_label_and_value(
         (DocumentFamily.UTILITY, "Service Connection Number\nAmount Due\nDue Date", "consumer_account_number"),
         (DocumentFamily.HOTEL, "Name\nRoom\nCheck In\nCheck Out", "guest_name"),
         (DocumentFamily.HOTEL, "Name\nID No.\nNationality\nRoom", "guest_name"),
+        (DocumentFamily.HOTEL, "Name\nID No.\nMember Card No.\nRoom", "guest_name"),
         (DocumentFamily.INVOICE_RECEIPT, "Name of Customer(Billed to)\nAddress\nTax\nTotal", "customer_name"),
         (DocumentFamily.INVOICE_RECEIPT, "TAX INVOICE\n17 Aug 2025\n59.00\nOriginal copy", "invoice_number"),
     ],
