@@ -361,6 +361,7 @@ _TRAVEL_TIME_PATTERN = re.compile(
 )
 _TRAVEL_FLIGHT_PATTERN = re.compile(r"\b[A-Z]{2,3}[ \t]+\d{2,4}\b")
 _TRAVEL_IATA_PATTERN = re.compile(r"\b[A-Z]{3}\b")
+_TRAVEL_DEPARTING_PATTERN = re.compile(r"^\s*DEPARTING\s*$", re.I)
 _MONTH_ABBREVIATIONS = {
     "jan": "Jan", "january": "Jan",
     "feb": "Feb", "february": "Feb",
@@ -386,8 +387,24 @@ def _extract_label_less_travel_date(text: str) -> str | None:
     so the group may span up to five adjacent non-empty OCR lines. If two
     distinct dates qualify, the result is ambiguous and remains ``not_found``.
     """
-    candidates: set[str] = set()
     lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    def normalized_dates(group: str) -> set[str]:
+        candidates: set[str] = set()
+        for match in _TRAVEL_DATE_PATTERN.finditer(group):
+            day = int(match.group("day"))
+            if not 1 <= day <= 31:
+                continue
+            month = _MONTH_ABBREVIATIONS[match.group("month").casefold()]
+            normalized = f"{day:02d} {month} {match.group('year')}"
+            try:
+                datetime.strptime(normalized, "%d %b %Y")
+            except ValueError:
+                continue
+            candidates.add(normalized)
+        return candidates
+
+    candidates: set[str] = set()
     for start in range(len(lines)):
         for stop in range(start + 1, min(len(lines), start + 5) + 1):
             group = " ".join(lines[start:stop])
@@ -398,18 +415,34 @@ def _extract_label_less_travel_date(text: str) -> str | None:
                 or _TRAVEL_IATA_PATTERN.search(group)
             ):
                 continue
-            for match in _TRAVEL_DATE_PATTERN.finditer(group):
-                day = int(match.group("day"))
-                if not 1 <= day <= 31:
-                    continue
-                month = _MONTH_ABBREVIATIONS[match.group("month").casefold()]
-                normalized = f"{day:02d} {month} {match.group('year')}"
-                try:
-                    datetime.strptime(normalized, "%d %b %Y")
-                except ValueError:
-                    continue
-                candidates.add(normalized)
-    return next(iter(candidates)) if len(candidates) == 1 else None
+            candidates.update(normalized_dates(group))
+    if len(candidates) == 1:
+        return next(iter(candidates))
+
+    # Some itinerary OCR streams preserve reading order but emit the airport,
+    # time, carrier, city, and date as many separate blocks. In that form the
+    # date can be farther than five blocks from its time. Limit the wider
+    # search to the first explicit DEPARTING section and stop at the next one,
+    # so a return itinerary cannot be selected as the outbound date.
+    departing_indices = [
+        index for index, line in enumerate(lines)
+        if _TRAVEL_DEPARTING_PATTERN.fullmatch(line)
+    ]
+    if departing_indices:
+        start = departing_indices[0] + 1
+        stop = departing_indices[1] if len(departing_indices) > 1 else len(lines)
+        section = " ".join(lines[start:stop])
+        if (
+            _TRAVEL_TIME_PATTERN.search(section)
+            and (
+                _TRAVEL_FLIGHT_PATTERN.search(section)
+                or _TRAVEL_IATA_PATTERN.search(section)
+            )
+        ):
+            section_candidates = normalized_dates(section)
+            if len(section_candidates) == 1:
+                return next(iter(section_candidates))
+    return None
 
 
 def extract_predefined_fields(family: DocumentFamily, text: str) -> list[GenericFieldDecision]:
