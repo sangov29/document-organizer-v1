@@ -381,29 +381,34 @@ def _extract_label_less_travel_date(text: str) -> str | None:
     """Select one strongly structured, otherwise-unlabelled travel date.
 
     This is deliberately a fallback, not a general date extractor. A candidate
-    must share a line with a time, a weekday, and a flight/airport code. If two
+    must occur within one compact OCR group containing a time, a weekday, and a
+    flight/airport code. PaddleOCR emits detected text boxes as separate lines,
+    so the group may span up to five adjacent non-empty OCR lines. If two
     distinct dates qualify, the result is ambiguous and remains ``not_found``.
     """
     candidates: set[str] = set()
-    for line in text.splitlines():
-        if not _TRAVEL_TIME_PATTERN.search(line):
-            continue
-        if not (
-            _TRAVEL_FLIGHT_PATTERN.search(line)
-            or _TRAVEL_IATA_PATTERN.search(line)
-        ):
-            continue
-        for match in _TRAVEL_DATE_PATTERN.finditer(line):
-            day = int(match.group("day"))
-            if not 1 <= day <= 31:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    for start in range(len(lines)):
+        for stop in range(start + 1, min(len(lines), start + 5) + 1):
+            group = " ".join(lines[start:stop])
+            if not _TRAVEL_TIME_PATTERN.search(group):
                 continue
-            month = _MONTH_ABBREVIATIONS[match.group("month").casefold()]
-            normalized = f"{day:02d} {month} {match.group('year')}"
-            try:
-                datetime.strptime(normalized, "%d %b %Y")
-            except ValueError:
+            if not (
+                _TRAVEL_FLIGHT_PATTERN.search(group)
+                or _TRAVEL_IATA_PATTERN.search(group)
+            ):
                 continue
-            candidates.add(normalized)
+            for match in _TRAVEL_DATE_PATTERN.finditer(group):
+                day = int(match.group("day"))
+                if not 1 <= day <= 31:
+                    continue
+                month = _MONTH_ABBREVIATIONS[match.group("month").casefold()]
+                normalized = f"{day:02d} {month} {match.group('year')}"
+                try:
+                    datetime.strptime(normalized, "%d %b %Y")
+                except ValueError:
+                    continue
+                candidates.add(normalized)
     return next(iter(candidates)) if len(candidates) == 1 else None
 
 
