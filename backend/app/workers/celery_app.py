@@ -1,4 +1,5 @@
 from io import BytesIO
+from datetime import datetime, timezone
 import logging
 import uuid
 from urllib.parse import urlencode
@@ -117,7 +118,7 @@ def _preprocess_pages(db, document: Document, correlation_id: str) -> tuple[int,
             status=ProcessingStatus.PROCESSING, correlation_id=correlation_id,
         )
         db.add(job)
-        db.flush()
+        db.commit()
         source = storage.get_bytes(page.derived_object_key)
         page_mime = "application/pdf" if page.derived_object_key.endswith(".pdf") else document.mime_type
         result = preprocess_page(source, page_mime)
@@ -136,7 +137,8 @@ def _preprocess_pages(db, document: Document, correlation_id: str) -> tuple[int,
         ))
         job.status = ProcessingStatus.NEEDS_REVIEW if result.needs_review else ProcessingStatus.READY
         review_required = review_required or result.needs_review
-        db.flush()
+        job.updated_at = datetime.now(timezone.utc)
+        db.commit()
     return len(pages), review_required
 
 
@@ -162,7 +164,7 @@ def _ocr_pages(db, document: Document, correlation_id: str) -> tuple[int, bool]:
             status=ProcessingStatus.PROCESSING, correlation_id=correlation_id,
         )
         db.add(job)
-        db.flush()
+        db.commit()
         result = recognize_page(storage.get_bytes(preprocessing.normalized_object_key))
         low_confidence = not result.text or (
             result.confidence is None or result.confidence < settings.ocr_review_confidence
@@ -175,7 +177,8 @@ def _ocr_pages(db, document: Document, correlation_id: str) -> tuple[int, bool]:
         ))
         job.status = ProcessingStatus.NEEDS_REVIEW if low_confidence else ProcessingStatus.READY
         review_required = review_required or low_confidence
-        db.flush()
+        job.updated_at = datetime.now(timezone.utc)
+        db.commit()
     return len(pages), review_required
 
 
@@ -207,7 +210,7 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
         status=ProcessingStatus.PROCESSING, correlation_id=correlation_id,
     )
     db.add(job)
-    db.flush()
+    db.commit()
     combined_text = "\n".join(artifact.text for _, artifact in rows)
     decision = classify_text(combined_text)
     classification = ClassificationResult(
@@ -310,11 +313,20 @@ def _analyze_document(db, document: Document, correlation_id: str) -> tuple[Docu
                 sensitivity_type="signature",
             ))
     job.status = ProcessingStatus.NEEDS_REVIEW if classification_review or field_review else ProcessingStatus.READY
-    db.flush()
+    job.updated_at = datetime.now(timezone.utc)
+    db.commit()
     return decision.family, classification_review or field_review
 
 
-@celery.task(name="pipeline.bootstrap", bind=True, autoretry_for=(RuntimeError,), retry_backoff=True, max_retries=3)
+@celery.task(
+    name="pipeline.bootstrap",
+    bind=True,
+    autoretry_for=(RuntimeError,),
+    retry_backoff=True,
+    max_retries=3,
+    soft_time_limit=settings.processing_soft_time_limit_seconds,
+    time_limit=settings.processing_hard_time_limit_seconds,
+)
 def bootstrap_pipeline(self, document_id: str):
     db = SessionLocal()
     document_uuid = None

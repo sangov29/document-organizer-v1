@@ -45,7 +45,49 @@ SENSITIVE_EXPORT_POLICY = "masked_no_bulk_reveal_v1"
 AUDIT_SCHEMA_VERSION = "audit-export-v0.1"
 
 
-def doc_response(doc: Document) -> DocumentResponse:
+def _processing_snapshot(db: Session | None, doc: Document) -> dict:
+    if db is None:
+        return {}
+    job = db.scalar(
+        select(ProcessingJob)
+        .where(ProcessingJob.document_id == doc.id)
+        .order_by(ProcessingJob.created_at.desc(), ProcessingJob.id.desc())
+    )
+    if not job:
+        return {}
+    active = job.status in (ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING)
+    first_job = db.scalar(
+        select(ProcessingJob)
+        .where(
+            ProcessingJob.document_id == doc.id,
+            ProcessingJob.correlation_id == job.correlation_id,
+        )
+        .order_by(ProcessingJob.created_at.asc(), ProcessingJob.id.asc())
+    )
+    started_at = first_job.created_at if first_job else job.created_at
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    elapsed = max(0, int((datetime.now(timezone.utc) - started_at).total_seconds())) if active else None
+    stalled = bool(active and elapsed is not None and elapsed >= settings.processing_stalled_seconds)
+    if doc.status == ProcessingStatus.FAILED:
+        message = "Processing failed. You can delete this document and upload it again."
+    elif stalled:
+        message = "Processing is taking longer than expected. You may keep waiting or delete this document."
+    elif active:
+        message = "Processing securely in the background."
+    else:
+        message = None
+    return {
+        "processing_stage": job.stage,
+        "processing_started_at": started_at,
+        "processing_elapsed_seconds": elapsed,
+        "processing_active": active,
+        "processing_stalled": stalled,
+        "processing_message": message,
+    }
+
+
+def doc_response(doc: Document, db: Session | None = None) -> DocumentResponse:
     return DocumentResponse(
         id=str(doc.id), original_filename=doc.original_filename, mime_type=doc.mime_type,
         size_bytes=doc.size_bytes, sha256=doc.sha256, status=doc.status.value,
@@ -54,6 +96,7 @@ def doc_response(doc: Document) -> DocumentResponse:
         version_group_id=(str(doc.version_group_id) if doc.version_group_id else None),
         version_number=doc.version_number,
         uploaded_at=doc.uploaded_at,
+        **_processing_snapshot(db, doc),
         tags=[{"id": str(tag.id), "name": tag.name} for tag in sorted(doc.tags, key=lambda item: item.name.casefold())],
         collections=[{"id": str(item.id), "name": item.name} for item in sorted(doc.collections, key=lambda item: item.name.casefold())],
     )
@@ -596,7 +639,7 @@ def search_documents(
         ).order_by(ClassificationResult.processed_at.desc()))
         family_value = classification.family.value if classification else "processing"
         items.append(OrganizedDocumentResponse(
-            **doc_response(document).model_dump(), family=family_value,
+            **doc_response(document, db).model_dump(), family=family_value,
             organization_label=("Unknown documents" if family_value == "unknown" else family_value.replace("_", " ").title()),
         ))
     return DocumentSearchResponse(items=items, total=total, page=page, page_size=page_size)
