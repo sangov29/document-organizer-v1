@@ -15,6 +15,12 @@ class DocumentResponse(BaseModel):
     version_number: int = 1
     status: str
     uploaded_at: datetime
+    processing_stage: str | None = None
+    processing_started_at: datetime | None = None
+    processing_elapsed_seconds: int | None = None
+    processing_active: bool = False
+    processing_stalled: bool = False
+    processing_message: str | None = None
     tags: list[dict] = Field(default_factory=list)
     collections: list[dict] = Field(default_factory=list)
 

@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     ocr_review_confidence: float = 0.60
     classification_known_threshold: float = 0.50
     field_review_confidence: float = 0.75
+    processing_stalled_seconds: int = 15 * 60
+    processing_soft_time_limit_seconds: int = 30 * 60
+    processing_hard_time_limit_seconds: int = 31 * 60
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
