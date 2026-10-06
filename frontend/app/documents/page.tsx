@@ -14,6 +14,7 @@ const familyOptions = ['identity','utility','banking','educational','employment'
 const pretty = (value:string) => value.replaceAll('_',' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const formatBytes = (bytes:number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const formatElapsed = (seconds?:number|null) => { if (seconds == null) return ''; const minutes = Math.floor(seconds / 60); return minutes < 1 ? 'less than a minute' : minutes === 1 ? '1 minute' : `${minutes} minutes`; };
+const createUploadId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export default function Documents() {
   const [docs, setDocs] = useState<Doc[]>([]); const [selected, setSelected] = useState<string[]>([]); const [message, setMessage] = useState(''); const [bulk, setBulk] = useState<BulkItem[]>([]); const [pendingDuplicate, setPendingDuplicate] = useState<PendingDuplicate|null>(null); const [uploadActivity, setUploadActivity] = useState<UploadActivity[]>([]); const [singleFileName, setSingleFileName] = useState(''); const [bulkFileNames, setBulkFileNames] = useState<string[]>([]); const [ready, setReady] = useState(false); const [query, setQuery] = useState(''); const [family, setFamily] = useState(''); const [fieldValue, setFieldValue] = useState(''); const [uploadedFrom, setUploadedFrom] = useState(''); const [uploadedTo, setUploadedTo] = useState(''); const [page, setPage] = useState(1); const [total, setTotal] = useState(0); const [tags, setTags] = useState<Named[]>([]); const [collections, setCollections] = useState<Named[]>([]); const [tagFilter, setTagFilter] = useState(''); const [collectionFilter, setCollectionFilter] = useState(''); const [reminders, setReminders] = useState<Reminder[]>([]); const [reminderPreferences, setReminderPreferences] = useState<ReminderPreferences>({enabled:true, window_days:90});
   const token = () => localStorage.getItem('access_token') ?? '';
@@ -69,7 +70,7 @@ export default function Documents() {
   async function upload(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); const form = e.currentTarget; const fd = new FormData(form); const file = fd.get('file');
     if (!(file instanceof File) || !file.name) { setMessage('Choose a document first.'); return; }
-    const activityId = crypto.randomUUID();
+    const activityId = createUploadId();
     setUploadActivity(current => [{id:activityId, filename:file.name, state:'uploading', message:'Uploading to the secure queue…'}, ...current]);
     form.reset(); setSingleFileName('');
     const r = await fetch(`${API}/api/v1/documents`, {method:'POST', headers:{Authorization:`Bearer ${token()}`}, body:fd}); const b = await r.json().catch(()=>null);
@@ -90,7 +91,7 @@ export default function Documents() {
   async function bulkUpload(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); const form = e.currentTarget; const fd = new FormData(form); const files = fd.getAll('files').filter((item): item is File => item instanceof File && Boolean(item.name));
     if (!files.length) { setMessage('Choose at least one document first.'); return; }
-    const activities = files.map(file => ({id:crypto.randomUUID(),filename:file.name,state:'uploading' as const,message:'Uploading to the secure queue…'}));
+    const activities = files.map(file => ({id:createUploadId(),filename:file.name,state:'uploading' as const,message:'Uploading to the secure queue…'}));
     setUploadActivity(current => [...activities, ...current]); form.reset(); setBulkFileNames([]);
     const r = await fetch(`${API}/api/v1/documents/bulk`, {method:'POST', headers:{Authorization:`Bearer ${token()}`}, body:fd}); const b = await r.json().catch(()=>null);
     if (r.ok) {

@@ -33,3 +33,11 @@ def test_selected_filenames_are_visible_before_submission():
     assert "bulkFileNames.join(', ')" in source
     assert "setSingleFileName(event.target.files?.[0]?.name ?? '')" in source
     assert "setBulkFileNames(Array.from(event.target.files ?? []).map(file=>file.name))" in source
+
+
+def test_upload_activity_ids_do_not_require_random_uuid_browser_support():
+    source = DOCUMENTS_PAGE.read_text()
+
+    assert "const createUploadId = () =>" in source
+    assert "id:createUploadId()" in source
+    assert "crypto.randomUUID" not in source
