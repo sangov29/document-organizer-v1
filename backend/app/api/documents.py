@@ -40,7 +40,7 @@ from app.workers.celery_app import bootstrap_pipeline
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 ALLOWED_MIME = {"application/pdf", "image/jpeg", "image/png"}
-EXPORT_SCHEMA_VERSION = "export-v0.1"
+EXPORT_SCHEMA_VERSION = "export-v0.2"
 SENSITIVE_EXPORT_POLICY = "masked_no_bulk_reveal_v1"
 AUDIT_SCHEMA_VERSION = "audit-export-v0.1"
 
@@ -88,6 +88,18 @@ def _processing_snapshot(db: Session | None, doc: Document) -> dict:
 
 
 def doc_response(doc: Document, db: Session | None = None) -> DocumentResponse:
+    structured_field_count = 0
+    extracted_value_count = 0
+    if db is not None:
+        structured_field_count, extracted_value_count = db.execute(
+            select(
+                func.count(ExtractedField.id),
+                func.count(ExtractedField.value),
+            ).where(
+                ExtractedField.document_id == doc.id,
+                ExtractedField.is_active.is_(True),
+            )
+        ).one()
     return DocumentResponse(
         id=str(doc.id), original_filename=doc.original_filename, mime_type=doc.mime_type,
         size_bytes=doc.size_bytes, sha256=doc.sha256, status=doc.status.value,
@@ -97,6 +109,8 @@ def doc_response(doc: Document, db: Session | None = None) -> DocumentResponse:
         version_number=doc.version_number,
         uploaded_at=doc.uploaded_at,
         **_processing_snapshot(db, doc),
+        structured_field_count=structured_field_count,
+        extracted_value_count=extracted_value_count,
         tags=[{"id": str(tag.id), "name": tag.name} for tag in sorted(doc.tags, key=lambda item: item.name.casefold())],
         collections=[{"id": str(item.id), "name": item.name} for item in sorted(doc.collections, key=lambda item: item.name.casefold())],
     )
@@ -264,7 +278,7 @@ def upload_document(
     user: User = Depends(get_current_user),
 ):
     data, digest = _read_upload(file)
-    return doc_response(_persist_upload(file, data, digest, db, user, duplicate_action))
+    return doc_response(_persist_upload(file, data, digest, db, user, duplicate_action), db)
 
 
 @router.post("/bulk", response_model=BulkUploadResponse)
@@ -281,7 +295,7 @@ def bulk_upload_documents(
         try:
             data, digest = _read_upload(file)
             doc = _persist_upload(file, data, digest, db, user)
-            items.append(BulkUploadItemResponse(filename=filename, outcome="queued", document=doc_response(doc)))
+            items.append(BulkUploadItemResponse(filename=filename, outcome="queued", document=doc_response(doc, db)))
             queued_count += 1
         except HTTPException as exc:
             db.rollback()
@@ -318,7 +332,7 @@ def list_documents(
     if not include_versions:
         statement = statement.where(_current_document_clause())
     docs = db.scalars(statement.order_by(Document.uploaded_at.desc())).all()
-    return [doc_response(d) for d in docs]
+    return [doc_response(d, db) for d in docs]
 
 
 @router.post("/{document_id}/versions", response_model=DocumentResponse, status_code=202)
@@ -345,7 +359,7 @@ def replace_document_with_new_version(
         inherited_tags=list(previous.tags),
         inherited_collections=list(previous.collections),
     )
-    return doc_response(document)
+    return doc_response(document, db)
 
 
 @router.get("/{document_id}/versions", response_model=list[DocumentResponse])
@@ -362,7 +376,7 @@ def list_document_versions(
             or_(Document.id == group_id, Document.version_group_id == group_id),
         ).order_by(Document.version_number.desc(), Document.uploaded_at.desc())
     ).all()
-    return [doc_response(item) for item in versions]
+    return [doc_response(item, db) for item in versions]
 
 
 @router.get("/tags", response_model=list[NamedResourceResponse])
@@ -437,7 +451,7 @@ def add_document_tag(document_id: str, tag_id: uuid.UUID, db: Session = Depends(
         document.tags.append(tag)
         db.commit()
         db.refresh(document)
-    return doc_response(document)
+    return doc_response(document, db)
 
 
 @router.delete("/{document_id}/tags/{tag_id}", response_model=DocumentResponse)
@@ -450,7 +464,7 @@ def remove_document_tag(document_id: str, tag_id: uuid.UUID, db: Session = Depen
         document.tags.remove(tag)
         db.commit()
         db.refresh(document)
-    return doc_response(document)
+    return doc_response(document, db)
 
 
 @router.put("/{document_id}/collections/{collection_id}", response_model=DocumentResponse)
@@ -463,7 +477,7 @@ def add_document_collection(document_id: str, collection_id: uuid.UUID, db: Sess
         document.collections.append(collection)
         db.commit()
         db.refresh(document)
-    return doc_response(document)
+    return doc_response(document, db)
 
 
 @router.delete("/{document_id}/collections/{collection_id}", response_model=DocumentResponse)
@@ -476,7 +490,7 @@ def remove_document_collection(document_id: str, collection_id: uuid.UUID, db: S
         document.collections.remove(collection)
         db.commit()
         db.refresh(document)
-    return doc_response(document)
+    return doc_response(document, db)
 
 
 @router.get("/reminders", response_model=ReminderListResponse)
@@ -700,7 +714,7 @@ def get_document(
         # Use the same response for nonexistent and foreign-owned identifiers so
         # the endpoint cannot be used to enumerate another user's documents.
         raise HTTPException(status_code=404, detail="Document not found")
-    return doc_response(document)
+    return doc_response(document, db)
 
 
 @router.get("/{document_id}/audit", response_model=AuditLogResponse)
@@ -1032,11 +1046,20 @@ def review_classification(
     return get_document_analysis(document_id, db, user)
 
 
-def _export_payload(document: Document, analysis: DocumentAnalysisResponse) -> dict:
+def _extraction_status(analysis: DocumentAnalysisResponse) -> str:
+    if not analysis.fields:
+        return "no_schema_fields"
+    if not any(field.value is not None for field in analysis.fields):
+        return "no_values_extracted"
+    return "values_extracted"
+
+
+def _export_payload(document: Document, analysis: DocumentAnalysisResponse, db: Session) -> dict:
     return {
         "export_schema_version": EXPORT_SCHEMA_VERSION,
         "sensitive_export_policy": SENSITIVE_EXPORT_POLICY,
-        "document": doc_response(document).model_dump(mode="json"),
+        "extraction_status": _extraction_status(analysis),
+        "document": doc_response(document, db).model_dump(mode="json"),
         "classification": analysis.classification.model_dump(mode="json"),
         "fields": [field.model_dump(mode="json") for field in analysis.fields],
     }
@@ -1052,7 +1075,7 @@ def export_document_json(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     analysis = get_document_analysis(document_id, db, user)
-    body = json.dumps(_export_payload(document, analysis), sort_keys=True, separators=(",", ":"))
+    body = json.dumps(_export_payload(document, analysis, db), sort_keys=True, separators=(",", ":"))
     return Response(
         content=body,
         media_type="application/json",
@@ -1082,7 +1105,8 @@ def export_documents_csv(
 
     headers = [
         "export_schema_version", "sensitive_export_policy", "document_id",
-        "original_filename", "family", "field_name", "value", "confidence",
+        "original_filename", "document_status", "extraction_status", "family",
+        "field_name", "value", "confidence",
         "trust_state", "criticality", "schema_version", "provider",
         "model_version", "method", "source_page_id", "visual_region_id",
         "sensitivity_type", "masked",
@@ -1093,12 +1117,26 @@ def export_documents_csv(
     for document_id in ids:
         document = by_id[document_id]
         analysis = get_document_analysis(document_id, db, user)
+        extraction_status = _extraction_status(analysis)
+        if not analysis.fields:
+            writer.writerow({
+                "export_schema_version": EXPORT_SCHEMA_VERSION,
+                "sensitive_export_policy": SENSITIVE_EXPORT_POLICY,
+                "document_id": str(document.id),
+                "original_filename": document.original_filename,
+                "document_status": document.status.value,
+                "extraction_status": extraction_status,
+                "family": analysis.classification.family,
+                "masked": "false",
+            })
         for field in analysis.fields:
             writer.writerow({
                 "export_schema_version": EXPORT_SCHEMA_VERSION,
                 "sensitive_export_policy": SENSITIVE_EXPORT_POLICY,
                 "document_id": str(document.id),
                 "original_filename": document.original_filename,
+                "document_status": document.status.value,
+                "extraction_status": extraction_status,
                 "family": analysis.classification.family,
                 "field_name": field.field_name,
                 "value": field.value or "",

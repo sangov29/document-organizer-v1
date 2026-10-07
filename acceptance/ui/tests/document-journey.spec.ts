@@ -80,7 +80,7 @@ test('registration, verification, login, upload, duplicate keep, detail and logo
   await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-amount\/review$/, async route => route.fulfill({json: correctedAnalysis}));
   await page.route(/\/api\/v1\/documents\/[^/]+\/fields\/field-account\/reveal$/, async route => route.fulfill({headers:{'Cache-Control':'no-store'}, json:{subject_type:'extracted_field', subject_id:'field-account', sensitivity_type:'financial_account', revealed_value:'987654321012'}}));
   await page.route(/\/api\/v1\/documents\/[^/]+\/regions\/region-signature\/reveal$/, async route => route.fulfill({headers:{'Cache-Control':'no-store'}, json:{subject_type:'visual_region', subject_id:'region-signature', sensitivity_type:'signature', content_base64:PNG.toString('base64'), media_type:'image/png'}}));
-  await page.route(/\/api\/v1\/documents\/[^/]+\/export\.json$/, async route => route.fulfill({headers:{'Content-Type':'application/json'}, body:JSON.stringify({export_schema_version:'export-v0.1', sensitive_export_policy:'masked_no_bulk_reveal_v1'})}));
+  await page.route(/\/api\/v1\/documents\/[^/]+\/export\.json$/, async route => route.fulfill({headers:{'Content-Type':'application/json'}, body:JSON.stringify({export_schema_version:'export-v0.2', sensitive_export_policy:'masked_no_bulk_reveal_v1', extraction_status:'values_extracted'})}));
   await page.getByRole('link', {name: 'ui-proof-copy.png'}).click();
   await expect(page.getByTestId('document-detail')).toContainText(/kept duplicate/i);
   await expect(page.getByText('Canonical document')).toBeVisible();
