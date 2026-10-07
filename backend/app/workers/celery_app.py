@@ -367,9 +367,9 @@ def bootstrap_pipeline(self, document_id: str):
         family, analysis_review = _analyze_document(db, document, job.correlation_id)
         review_required = preprocessing_review or ocr_review
         review_required = review_required or analysis_review
-        # Printed-text OCR is complete. Later CL/EX stages are still pending;
-        # degraded pages remain explicitly routed for review.
-        document.status = ProcessingStatus.NEEDS_REVIEW if review_required else ProcessingStatus.QUEUED
+        # All synchronous pipeline stages have completed. Route degraded or
+        # uncertain results to review; otherwise finalize the document as ready.
+        document.status = ProcessingStatus.NEEDS_REVIEW if review_required else ProcessingStatus.READY
         db.commit()
         return {
             "document_id": document_id, "status": "analysis_ready",

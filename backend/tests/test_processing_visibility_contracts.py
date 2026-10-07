@@ -45,3 +45,16 @@ def test_document_list_refreshes_active_jobs_and_explains_stalled_or_failed_work
     assert "Processing failed" in source
     assert "processing_elapsed_seconds" in source
     assert "d.processing_stalled ? 'Taking longer'" in source
+
+
+def test_successful_pipeline_finalizes_document_instead_of_requeueing_it():
+    worker = WORKER.read_text()
+
+    assert (
+        "document.status = ProcessingStatus.NEEDS_REVIEW "
+        "if review_required else ProcessingStatus.READY"
+    ) in worker
+    assert (
+        "document.status = ProcessingStatus.NEEDS_REVIEW "
+        "if review_required else ProcessingStatus.QUEUED"
+    ) not in worker

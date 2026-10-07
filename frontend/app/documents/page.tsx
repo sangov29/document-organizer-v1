@@ -95,8 +95,9 @@ export default function Documents() {
     setUploadActivity(current => [...activities, ...current]); form.reset(); setBulkFileNames([]);
     const r = await fetch(`${API}/api/v1/documents/bulk`, {method:'POST', headers:{Authorization:`Bearer ${token()}`}, body:fd}); const b = await r.json().catch(()=>null);
     if (r.ok) {
-      const results = new Map<string,BulkItem[]>(); for (const item of b.items as BulkItem[]) results.set(item.filename, [...(results.get(item.filename) ?? []), item]);
-      setUploadActivity(current => current.map(item => { const match = activities.find(activity => activity.id === item.id); if (!match) return item; const result = results.get(match.filename)?.shift(); const queued = result?.outcome === 'queued'; return {...item,state:queued ? 'queued' : 'failed',message:queued ? 'Queued for background processing. You can upload more documents now.' : result?.message || 'This file was not queued.'}; }));
+      const remainingResults = new Map<string,BulkItem[]>(); for (const item of b.items as BulkItem[]) remainingResults.set(item.filename, [...(remainingResults.get(item.filename) ?? []), item]);
+      const resultByActivityId = new Map<string,BulkItem>(); for (const activity of activities) { const matches = remainingResults.get(activity.filename) ?? []; const result = matches[0]; if (result) { resultByActivityId.set(activity.id, result); remainingResults.set(activity.filename, matches.slice(1)); } }
+      setUploadActivity(current => current.map(item => { const result = resultByActivityId.get(item.id); if (!result) return item; const queued = result.outcome === 'queued'; return {...item,state:queued ? 'queued' : 'failed',message:queued ? 'Queued for background processing. You can upload more documents now.' : result.message || 'This file was not queued.'}; }));
       setBulk(b.items); setMessage(`Queued ${b.queued_count}; ${b.failed_count} not queued.`); load();
     } else { setUploadActivity(current => current.map(item => activities.some(activity => activity.id === item.id) ? {...item,state:'failed',message:'Bulk upload failed before item processing.'} : item)); setMessage('Bulk upload failed before item processing.'); }
   }

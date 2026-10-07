@@ -23,7 +23,15 @@ def test_upload_activity_reports_each_file_without_erasing_duplicates():
     assert "Queued for background processing" in source
     assert "Duplicate detected. Choose whether to keep another copy." in source
     assert "fd.set('duplicate_action', 'keep')" in source
-    assert "activities.find(activity => activity.id === item.id)" in source
+    assert "resultByActivityId.get(item.id)" in source
+
+
+def test_bulk_result_mapping_is_pure_when_react_replays_state_updates():
+    source = DOCUMENTS_PAGE.read_text()
+
+    assert "const resultByActivityId = new Map<string,BulkItem>()" in source
+    assert "matches.slice(1)" in source
+    assert ".shift()" not in source
 
 
 def test_selected_filenames_are_visible_before_submission():
