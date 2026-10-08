@@ -70,6 +70,7 @@ def test_PR_TC_001_source_page(api, evidence, auth_token, run_id):
         provenance = field["provenance"]
         assert provenance["source_document_id"] == document_id
         assert provenance["source_page_id"]
+        assert provenance["source_page_number"] == 1
     evidence.note("source-page-provenance", result)
     folder = EVIDENCE_DIR / "provenance"
     folder.mkdir(parents=True, exist_ok=True)
@@ -98,6 +99,8 @@ def test_PR_TC_002_bounding_region(api, evidence, auth_token, run_id):
     assert set(region["bbox"]) == {"x", "y", "width", "height"}
     assert all(isinstance(region["bbox"][key], int) for key in region["bbox"])
     assert all(region["bbox"][key] >= 0 for key in ("x", "y", "width", "height"))
+    assert account["provenance"]["source_page_number"] == 1
+    assert account["provenance"]["visual_region_bbox"] == region["bbox"]
     evidence.note("bounding-region-provenance", {"field": account, "region": region})
     folder = EVIDENCE_DIR / "provenance"
     folder.mkdir(parents=True, exist_ok=True)

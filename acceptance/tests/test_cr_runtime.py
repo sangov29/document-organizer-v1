@@ -40,6 +40,8 @@ def test_CR_TC_001_printed_text_ocr_page_lineage(api, evidence, auth_token, run_
     assert "DOCUMENT ORGANIZER ACCEPTANCE PAGE" in normalized
     assert "PP-TEST-2026-0001" in normalized
     assert page["page_number"] == 1 and page["page_id"]
+    assert page["processed_image_width"] > 0
+    assert page["processed_image_height"] > 0
     assert page["provider"] == "paddleocr"
     assert page["model_version"] == "PP-OCRv5_mobile_det+en_PP-OCRv5_mobile_rec"
     assert page["method"] == "printed_text_ocr"

@@ -804,8 +804,9 @@ def get_document_ocr(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     rows = db.execute(
-        select(Page, OCRArtifact)
+        select(Page, OCRArtifact, PreprocessingResult)
         .join(OCRArtifact, OCRArtifact.page_id == Page.id)
+        .join(PreprocessingResult, PreprocessingResult.page_id == Page.id)
         .where(Page.document_id == document.id)
         .order_by(Page.page_number)
     ).all()
@@ -817,22 +818,40 @@ def get_document_ocr(
         pages=[
             OCRPageResponse(
                 page_id=str(page.id), page_number=page.page_number,
+                processed_image_width=image_size[0],
+                processed_image_height=image_size[1],
                 text=mask_ocr_text(artifact.text), confidence=artifact.confidence,
                 blocks=mask_ocr_blocks(artifact.blocks), provider=artifact.provider,
                 model_version=artifact.model_version, method=artifact.method,
                 language=artifact.language, processed_at=artifact.created_at,
             )
-            for page, artifact in rows
+            for page, artifact, preprocessing in rows
+            for image_size in [_normalized_image_size(preprocessing.normalized_object_key)]
         ],
     )
 
 
-def _provenance_response(provenance: Provenance) -> ResultProvenanceResponse:
+def _normalized_image_size(object_key: str) -> tuple[int, int]:
+    with Image.open(BytesIO(storage.get_bytes(object_key))) as image:
+        return image.size
+
+
+def _provenance_response(provenance: Provenance, db: Session) -> ResultProvenanceResponse:
+    page_number = (
+        db.scalar(select(Page.page_number).where(Page.id == provenance.source_page_id))
+        if provenance.source_page_id else None
+    )
+    region_bbox = (
+        db.scalar(select(VisualRegion.bbox).where(VisualRegion.id == provenance.visual_region_id))
+        if provenance.visual_region_id else None
+    )
     return ResultProvenanceResponse(
         id=str(provenance.id),
         source_document_id=str(provenance.source_document_id),
         source_page_id=str(provenance.source_page_id) if provenance.source_page_id else None,
+        source_page_number=page_number,
         visual_region_id=str(provenance.visual_region_id) if provenance.visual_region_id else None,
+        visual_region_bbox=region_bbox,
         provider=provenance.provider, model_version=provenance.model_version,
         method=provenance.method, confidence=provenance.confidence,
         processed_at=provenance.processed_at,
@@ -988,7 +1007,7 @@ def get_document_analysis(
             value=mask_sensitive_value(field.value) if is_sensitive else field.value,
             confidence=field.confidence, trust_state=field.trust_state.value,
             criticality=field.criticality, schema_version=field.schema_version,
-            provenance=_provenance_response(provenance),
+            provenance=_provenance_response(provenance, db),
             corrections=[{
                 "id": str(c.id),
                 "prior_value": mask_sensitive_value(c.prior_value) if is_sensitive else c.prior_value,
@@ -1015,7 +1034,7 @@ def get_document_analysis(
             configured_threshold=settings.classification_known_threshold,
             review_required=_classification_review_required(classification),
             reviewed_at=classification.reviewed_at,
-            provenance=_provenance_response(classification_provenance),
+            provenance=_provenance_response(classification_provenance, db),
         ),
         fields=field_responses,
         sensitive_regions=sensitive_regions,
