@@ -148,6 +148,8 @@ class OCRWordResponse(BaseModel):
 class OCRPageResponse(BaseModel):
     page_id: str
     page_number: int
+    processed_image_width: int
+    processed_image_height: int
     text: str
     confidence: float | None
     blocks: list[OCRWordResponse]
@@ -167,7 +169,9 @@ class ResultProvenanceResponse(BaseModel):
     id: str
     source_document_id: str
     source_page_id: str | None
+    source_page_number: int | None = None
     visual_region_id: str | None
+    visual_region_bbox: dict[str, int] | None = None
     provider: str
     model_version: str
     method: str
