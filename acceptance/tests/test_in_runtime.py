@@ -82,7 +82,7 @@ def test_IN_TC_002_multi_document_csv_export(api, evidence, auth_token, run_id):
     educational = _upload_and_wait(api, auth_token, run_id, "in002-educational", [
         "ACADEMIC TRANSCRIPT", "EXAMPLE UNIVERSITY", "CERTIFICATE",
     ])
-    assert educational["family"] == "educational" and educational["fields"] == []
+    assert educational["classification"]["family"] == "educational" and educational["fields"] == []
     ids = [utility["document_id"], banking["document_id"], educational["document_id"]]
     response = api.request(
         "POST", "/documents/batch/export.csv", label="IN-TC-002 CSV batch export",
