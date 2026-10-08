@@ -45,7 +45,8 @@ def test_IN_TC_001_stable_single_document_json_export(api, evidence, auth_token,
     assert first.headers["cache-control"] == "no-store, private"
     assert first.content == second.content
     exported = first.json()
-    assert exported["export_schema_version"] == "export-v0.1"
+    assert exported["export_schema_version"] == "export-v0.2"
+    assert exported["extraction_status"] == "values_extracted"
     assert exported["sensitive_export_policy"] == POLICY
     assert exported["document"]["id"] == document_id
     assert exported["classification"]["family"] == "utility"
@@ -78,7 +79,11 @@ def test_IN_TC_002_multi_document_csv_export(api, evidence, auth_token, run_id):
         "BANK STATEMENT", "ACCOUNT STATEMENT", "IBAN",
         "Account Holder: Synthetic Test Customer", f"Account Number: {raw_account}",
     ])
-    ids = [utility["document_id"], banking["document_id"]]
+    educational = _upload_and_wait(api, auth_token, run_id, "in002-educational", [
+        "ACADEMIC TRANSCRIPT", "EXAMPLE UNIVERSITY", "CERTIFICATE",
+    ])
+    assert educational["classification"]["family"] == "educational" and educational["fields"] == []
+    ids = [utility["document_id"], banking["document_id"], educational["document_id"]]
     response = api.request(
         "POST", "/documents/batch/export.csv", label="IN-TC-002 CSV batch export",
         token=auth_token, json={"document_ids": ids},
@@ -89,7 +94,8 @@ def test_IN_TC_002_multi_document_csv_export(api, evidence, auth_token, run_id):
     reader = csv.DictReader(io.StringIO(response.text))
     expected_headers = [
         "export_schema_version", "sensitive_export_policy", "document_id",
-        "original_filename", "family", "field_name", "value", "confidence",
+        "original_filename", "document_status", "extraction_status", "family",
+        "field_name", "value", "confidence",
         "trust_state", "criticality", "schema_version", "provider",
         "model_version", "method", "source_page_id", "visual_region_id",
         "sensitivity_type", "masked",
@@ -97,13 +103,17 @@ def test_IN_TC_002_multi_document_csv_export(api, evidence, auth_token, run_id):
     assert reader.fieldnames == expected_headers
     rows = list(reader)
     assert {row["document_id"] for row in rows} == set(ids)
-    assert {row["family"] for row in rows} == {"utility", "banking"}
-    assert all(row["export_schema_version"] == "export-v0.1" for row in rows)
+    assert {row["family"] for row in rows} == {"utility", "banking", "educational"}
+    assert all(row["export_schema_version"] == "export-v0.2" for row in rows)
     assert all(row["sensitive_export_policy"] == POLICY for row in rows)
     not_found = [row for row in rows if row["trust_state"] == "not_found"]
     assert not_found and all(row["value"] == "" and row["confidence"] == "" for row in not_found)
     account = next(row for row in rows if row["field_name"] == "account_number")
     assert account["masked"] == "true" and account["value"].endswith(raw_account[-4:])
+    no_fields = next(row for row in rows if row["document_id"] == educational["document_id"])
+    assert no_fields["document_status"] == "ready"
+    assert no_fields["extraction_status"] == "no_schema_fields"
+    assert no_fields["field_name"] == "" and no_fields["value"] == ""
 
     folder = EVIDENCE_DIR / "interoperability"
     folder.mkdir(parents=True, exist_ok=True)

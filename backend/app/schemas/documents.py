@@ -21,6 +21,8 @@ class DocumentResponse(BaseModel):
     processing_active: bool = False
     processing_stalled: bool = False
     processing_message: str | None = None
+    structured_field_count: int = 0
+    extracted_value_count: int = 0
     tags: list[dict] = Field(default_factory=list)
     collections: list[dict] = Field(default_factory=list)
 
